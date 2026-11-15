@@ -9,7 +9,7 @@ Ispirata a [Mondo Isometrico](https://github.com/dg996/mondoisometrico) di Domen
 ## Cosa sarà
 - Il centro storico di Subiaco, la Rocca Abbaziale, il Ponte San Francesco e il fiume Aniene
 - I monasteri benedettini di Santa Scolastica e del Sacro Speco
-- Monte Livata con le piste di discesa, la seggiovia della Monna dell'Orso e la pista di sci di fondo di Campo dell'Osso, tra le più belle d'Europa
+- Monte Livata con la seggiovia, le piste di sci alpino a Monna dell'Orso e le pista di sci di fondo di Campo dell'Osso, immerse nella faggeta più estesa d'Europa.
 - Viewer web con zoom e pan, meteo in tempo reale e ciclo giorno/notte
 
 ## Fonti dati
