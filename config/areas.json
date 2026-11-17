@@ -1,0 +1,79 @@
+{
+  "formatoBbox": "S,W,N,E",
+  "sistema": "WGS84",
+  "fonte": "Coordinate da docs/fase0-dati-osm.md (Nominatim/Overpass, snapshot 15 novembre 2026). Non usare il bbox dell'intero comune.",
+  "aree": [
+    {
+      "id": "centro-storico",
+      "nome": "Centro storico di Subiaco",
+      "bbox": [41.922, 13.0845, 41.93, 13.105],
+      "descrizione": "Nucleo compatto con la Rocca Abbaziale, il Ponte San Francesco e l'Aniene subito oltre il ponte. Non include Santa Scolastica né il Sacro Speco.",
+      "note": []
+    },
+    {
+      "id": "centro-monasteri",
+      "nome": "Centro storico e monasteri",
+      "bbox": [41.9145, 13.0845, 41.93, 13.121],
+      "descrizione": "Stessi bordi ovest e nord del centro storico, estesi a sud e a est lungo l'Aniene fino a Santa Scolastica e al Sacro Speco.",
+      "note": [
+        "Finestra per i landmark religiosi. Per il primo test di rendering del borgo usare centro-storico: un unico bbox che inglobi i monasteri riempirebbe la scena di bosco e strada."
+      ]
+    },
+    {
+      "id": "monte-livata",
+      "nome": "Monte Livata",
+      "bbox": [41.936, 13.1435, 41.9545, 13.194],
+      "descrizione": "Abitato di Livata, gli impianti a nastro a est del paese e le piste da discesa con la seggiovia verso Campo dell'Osso. In OSM non esiste un oggetto chiamato «Monte Livata».",
+      "note": [
+        "L'unico impianto di risalita attivo è la seggiovia Monna dell'Orso. Gli altri elementi aerialway vanno verificati: possono essere piloni, stazioni o skilift dismessi ancora mappati.",
+        "La pista di sci di fondo di Campo dell'Osso è prioritaria e non risulta ancora mappata in OSM."
+      ]
+    }
+  ],
+  "landmark": [
+    {
+      "id": "rocca-abbaziale",
+      "nome": "Rocca Abbaziale",
+      "osm": "way/153585997",
+      "area": "centro-storico",
+      "note": "historic=castle. Il nome «Rocca dei Borgia» non compare nei tag OSM."
+    },
+    {
+      "id": "ponte-san-francesco",
+      "nome": "Ponte San Francesco",
+      "osm": "way/232122864",
+      "area": "centro-storico",
+      "note": "In OSM il nome è «Ponte San Francesco», senza «di». highway=footway, bridge=yes."
+    },
+    {
+      "id": "santa-scolastica",
+      "nome": "Monastero di Santa Scolastica",
+      "osm": "relation/5733172",
+      "area": "centro-monasteri",
+      "note": "Multipolygon amenity=monastery. Fuori dal bbox del solo centro storico."
+    },
+    {
+      "id": "sacro-speco",
+      "nome": "Monastero di San Benedetto (Sacro Speco)",
+      "osm": "way/236976582",
+      "area": "centro-monasteri",
+      "note": "Nome OSM: «Monastero di San Benedetto Sacro Speco». Fuori dal bbox del solo centro storico."
+    }
+  ],
+  "monteLivata": {
+    "impiantoAttivo": {
+      "id": "seggiovia-monna-dell-orso",
+      "nome": "Seggiovia Monna dell'Orso",
+      "osm": "way/131304704",
+      "stato": "attivo",
+      "note": "Unico impianto di risalita attivo. aerialway=chair_lift. Gli altri aerialway del bbox non vanno dati per attivi senza verifica."
+    },
+    "pistaPrioritaria": {
+      "id": "sci-fondo-campo-dell-osso",
+      "nome": "Pista di sci di fondo di Campo dell'Osso",
+      "osm": null,
+      "stato": "non-mappata",
+      "note": "Prioritaria per il progetto. Al 15 novembre 2026 nel bbox non risulta alcun piste:type=nordic: va mappata in OSM prima di poterla ricostruire dai dati."
+    }
+  }
+}

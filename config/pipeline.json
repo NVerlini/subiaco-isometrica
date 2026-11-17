@@ -1,0 +1,75 @@
+{
+  "fonte": "Numeri dello stile comune a krasun/isometricworld e dg996/mondoisometrico. Non è codice copiato: la proiezione si implementa in FASE 2. Vedi docs/riferimenti-pipeline.md.",
+  "stile": {
+    "pitchDeg": 45,
+    "mpp": 0.25,
+    "tileArte": 1024,
+    "nota": "pitchDeg è l'inclinazione sotto l'orizzonte (facciate e tetti insieme). Non è l'heading della bussola. mpp sono i metri per pixel d'arte sull'asse orizzontale dello schermo; profondità e altezze sullo schermo sono ridotte di 1/√2."
+  },
+  "piramide": {
+    "tileWeb": 512,
+    "zoomNativo": 8,
+    "zoomMinimo": 2,
+    "overlap": 0,
+    "formato": "avif",
+    "maxZoomPixelRatio": 2.5,
+    "zoomPerScroll": 1.35,
+    "nota": "Lo zoom nativo z=8 è 1:1 con i pixel d'arte. Ogni tile di render da 1024 diventa quattro tile web da 512. La tile (x, y) allo zoom z copre i pixel d'arte [x·512·2^(8-z), …). Il viewer del riferimento è OpenSeadragon, con tileOverlap 0."
+  },
+  "pittura": {
+    "finestra": 1024,
+    "sovrapposizione": 128,
+    "passo": 896,
+    "sfumatura": 64,
+    "strumento": "Codex CLI, senza chiave API nel repository",
+    "ingressi": ["render della finestra", "pass altezze allineato", "pipeline/style/reference.png", "pipeline/style/alberi.png"],
+    "nota": "Le immagini di stile non sono nel repo: si scelgono in FASE 3. Se si riusa un file dei riferimenti, resta coperto da MIT e va citato in ATTRIBUTION.md."
+  },
+  "regione": {
+    "id": "subiaco",
+    "titolo": "Subiaco e Monte Livata",
+    "stato": "provvisoria",
+    "congelareAlPrimoRender": true,
+    "origine": {
+      "lat": 41.92609,
+      "lon": 13.09482,
+      "h": 0,
+      "riferimento": "Rocca Abbaziale, docs/fase0-dati-osm.md"
+    },
+    "headingDeg": 45,
+    "headingStato": "provvisorio",
+    "headingNota": "Proposta come a Roma (centro irregolare, 45°). Va confermata sul reticolo delle strade, con l'Aniene preferibilmente a sinistra, prima del primo render. Dopo le tile non si cambia: si sposterebbe ogni tile.",
+    "geoidM": null,
+    "groundH": null,
+    "heightBase": null,
+    "quoteNota": "Il pass altezze del riferimento codifica circa 655 m (centimetri in 16 bit) sopra heightBase−100. Campo dell'Osso è a 1550 m in OSM e il borgo sta nel fondovalle: il dislivello va misurato sul DEM in FASE 1 prima di fissare heightBase. geoidM e groundH restano vuoti finché non ci sono EGM2008 e il DEM.",
+    "unaSolaRegione": true,
+    "motivoUnaRegione": "Centro e Monte Livata distano circa 5 km, molto sotto i circa 150 km entro cui il riferimento tiene una sola camera ENU. Una regione, una piramide, si scorre dal borgo alla montagna."
+  },
+  "cache": {
+    "raw": "data/raw/<area>/",
+    "dem": "data/raw/dem/",
+    "derived": "data/derived/<area>/",
+    "render": "data/derived/<area>/render/",
+    "height": "data/derived/<area>/height/",
+    "windows": "data/derived/<area>/windows/",
+    "paint": "data/derived/<area>/paint/",
+    "web": "data/web/regions/<regione>/",
+    "webState": "data/web-state/",
+    "nonCancellare": ["data/derived/", "data/web-state/"],
+    "nota": "Tutto data/ è gitignorato. data/web/ è solo la cache non ancora pubblicata. Le tile pubblicate stanno su R2, non in web/public."
+  },
+  "viewer": {
+    "stack": ["Astro", "OpenSeadragon"],
+    "quando": "FASE 4",
+    "cartelle": ["web/src/pages", "web/src/scripts", "web/src/components", "web/public"],
+    "deepLink": "#@x,y,zoom"
+  },
+  "deploy": {
+    "quando": "FASE 5",
+    "tile": "Cloudflare R2, bucket ancora da creare",
+    "sito": "Vercel, output web/dist",
+    "comandi": ["npm run export", "npm run publish", "npm run deploy"],
+    "ordine": "export scrive la cache, publish carica R2, deploy pubblica il sito. Il Worker Cloudflare del riferimento è solo un backup e non fa parte di questo setup."
+  }
+}
