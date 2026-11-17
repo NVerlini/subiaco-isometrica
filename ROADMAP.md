@@ -9,7 +9,7 @@ Fonti dati: OpenStreetMap, Carta Tecnica Regione Lazio, ESA WorldCover, Copernic
 - [x] Roadmap definita
 - [x] Analisi copertura OSM e bounding box (docs/fase0-dati-osm.md)
 - [x] Profilo GitHub personale creato
-- [x] Via all'implementazione (FASE 0 pronta; la FASE 1 non è iniziata)
+- [x] Via all'implementazione (FASE 0 pronta; FASE 1 geometria disponibile, render ancora da fare)
 
 ## FASE 0 – Setup e preparazione
 - [x] Creare repo personale (`isometric-subiaco` o `mondoisometrico-subiaco`), fork o base su dg996/mondoisometrico o krasun/isometricworld
@@ -21,13 +21,15 @@ Fonti dati: OpenStreetMap, Carta Tecnica Regione Lazio, ESA WorldCover, Copernic
 Esito: repo `NVerlini/subiaco-isometrica`, indipendente, senza fork. Stessi stadi della pipeline e `playwright-core` per Chromium di sistema, senza copia di sorgente. Le bounding box e i landmark stanno in `config/areas.json`. Camera (pitch 45°, 0,25 m/px, tile 1024), piramide web (tile 512, zoom 8→2), pittura a finestre e percorsi di cache stanno in `config/pipeline.json`. Il confronto fase per fase con i riferimenti è in `docs/riferimenti-pipeline.md`. La copertura OSM si riverifica con `npm run check:osm` (Overpass `out count`, senza scaricare geometrie). L'ambiente è descritto in `.env.example`; il file `.env` resta locale e non va versionato.
 
 ## FASE 1 – Geometria e dati
-- [ ] Fetch OSM: buildings, roads, water, landuse, monuments
-- [ ] Integrazione Carta Tecnica Regione Lazio (se utile)
-- [ ] Alberi e vegetazione da ESA WorldCover o OSM
-- [ ] Terrain da Copernicus DEM
-- [ ] Pipeline fetch → ground → scene
-- [ ] Landmark: Sacro Speco, Santa Scolastica, Rocca Abbaziale, Ponte di San Francesco, centro storico
-- [ ] Monte Livata (stazione sciistica, ~1.350 m): piste di discesa, pista di sci di fondo a Campo dell'Osso (priorità, tra le più belle d'Europa), seggiovia Monna dell'Orso, rifugi, faggete, strada di collegamento da Subiaco (OSM `piste:*`, `aerialway`), terrain DEM ad alta quota
+- [x] Fetch OSM: buildings, roads, water, landuse, monuments
+- [x] Integrazione Carta Tecnica Regione Lazio (se utile)
+- [x] Alberi e vegetazione da ESA WorldCover o OSM
+- [x] Terrain da Copernicus DEM
+- [x] Pipeline fetch → ground → scene
+- [x] Landmark: Sacro Speco, Santa Scolastica, Rocca Abbaziale, Ponte di San Francesco, centro storico
+- [x] Monte Livata (stazione sciistica, ~1.350 m): piste di discesa, pista di sci di fondo a Campo dell'Osso (priorità, tra le più belle d'Europa), seggiovia Monna dell'Orso, rifugi, faggete, strada di collegamento da Subiaco (OSM `piste:*`, `aerialway`), terrain DEM ad alta quota
+
+Esito (17 novembre 2026, dettaglio in `docs/fase1-geometria.md`): `npm run fetch && npm run ground && npm run scene` sul centro storico produce OSM in cache, suolo, `scene.json`, anteprima PNG e `scena.glb`. Sul centro, 194 edifici su 290 hanno l'altezza dall'unità volumetrica CTR (foglio DBT RM376, campo `UN_VOL_AV`); gli altri 96 usano il default di tipologia. La Rocca è a 19,6 m misurati, il Ponte San Francesco è la spezzata OSM. Santa Scolastica (31 m) e il Sacro Speco (9,2 m) stanno nella finestra `centro-monasteri`. Il DEM GLO-30, tile N41 E013, misura 365 m nel fondovalle e 1 745 m sulla cresta di Monte Livata: dislivello 1 380 m, quindi il pass altezze passa da 1 cm a 3 cm (`heightBase` 420, `geoidM` 49,78, `groundH` 547,7). A Monte Livata solo la seggiovia Monna dell'Orso è attiva; gli altri aerialway sono da verificare. La pista di fondo di Campo dell'Osso non è in OSM e non ha una geometria inventata. Il render a tile resta in FASE 2.
 
 ## FASE 2 – Rendering isometrico
 - [ ] Render ortografico 45° a tile
