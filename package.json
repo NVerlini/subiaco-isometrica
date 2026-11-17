@@ -1,0 +1,22 @@
+{
+  "name": "subiaco-isometrica",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mappa isometrica interattiva di Subiaco (RM) e Monte Livata. FASE 0: ambiente e verifica dati OSM.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check:osm": "node scripts/check-osm.mjs",
+    "fetch": "node scripts/fase.mjs fetch",
+    "ground": "node scripts/fase.mjs ground",
+    "scene": "node scripts/fase.mjs scene",
+    "render": "node scripts/fase.mjs render",
+    "paint": "node scripts/fase.mjs paint",
+    "dev": "node scripts/fase.mjs dev"
+  },
+  "dependencies": {
+    "playwright-core": "^1.65.0"
+  }
+}

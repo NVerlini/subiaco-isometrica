@@ -156,9 +156,15 @@ vite.config.ts.timestamp-*
 .nx/workspace-data
 .nx/migrate-runs
 
-# Project data, caches, and generated artifacts
-data/raw/
+# Dati scaricati, cache e prodotti della pipeline (non versionare)
+data/
 cache/
 tiles/
 output/
+
+# Report di browser automation (playwright-core non scarica Chromium)
+playwright-report/
+test-results/
+blob-report/
+
 .DS_Store
