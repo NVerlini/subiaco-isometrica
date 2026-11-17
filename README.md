@@ -2,7 +2,7 @@
 
 Mappa isometrica interattiva di **Subiaco (RM)** e **Monte Livata**, costruita da dati aperti e dipinta con AI.
 
-Ispirata a [Mondo Isometrico](https://github.com/dg996/mondoisometrico) di [@dom_gag_96](https://x.com/dom_gag_96) , a sua volta basato su [isometricworld](https://github.com/krasun/isometricworld).
+Ispirata a [Mondo Isometrico](https://github.com/dg996/mondoisometrico) a sua volta basato su [isometricworld](https://github.com/krasun/isometricworld).
 
 > FASE 1: geometria e dati per il centro storico, i monasteri e Monte Livata. Il render a tile è la FASE 2.
 
