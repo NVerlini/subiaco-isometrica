@@ -39,22 +39,24 @@ Non preso: proiezione, Three.js, Astro, immagini di stile, script di publish rea
 
 ## FASE 1 — geometria e dati
 
-Da portare, adattando e citando il copyright se si copia il file:
+Portato, adattando i file e tenendo la nota di copyright dove il sorgente è ripreso (vedi `ATTRIBUTION.md` e `docs/fase1-geometria.md`):
 
-- Scarico OSM in `data/raw/<area>/` (`osm.json`, `roads.json`, `ground.json`), saltando il file se c'è già.
-- DEM Copernicus in `data/raw/dem/`.
-- Suolo e scena in `data/derived/<area>/`.
-- Una regione sola, `subiaco`, con origine proposta sulla Rocca Abbaziale (41,92609 N, 13,09482 E). Centro e Monte Livata distano circa 5 km: il riferimento tiene nella stessa camera le città entro circa 150 km. L'origine e l'heading si congelano al primo render, perché ogni tile dipende da quei due numeri.
+- Scarico OSM in `data/raw/<area>/` (`osm.json`, `roads.json`, `ground.json`), saltando il file se c'è già. In più: coperture WFS e unità volumetriche CTR.
+- DEM Copernicus in `data/raw/dem/`. Tile unico `N41 E013`, misurato.
+- WorldCover 2021 in `data/raw/worldcover/`.
+- Suolo e scena in `data/derived/<area>/`, con anteprima PNG e GLB.
+- Una regione sola, `subiaco`, origine sulla Rocca Abbaziale (41,92609 N, 13,09482 E). L'heading non è ancora congelato: il primo render di FASE 2 lo fissa.
 
 Da non portare: layer ArcGIS di Tel Aviv, LoD2/DGM1 della LGL, estratti Geofabrik di Stoccarda, bus ATAC.
 
-Scelte ancora aperte, da chiudere sui dati e non prima:
+Misure chiuse il 17 novembre 2026, scritte in `config/pipeline.json`:
 
-- `geoidM` (ondulazione EGM2008) e `groundH` sono vuoti. Non vanno inventati.
-- Il pass altezze del riferimento copre circa 655 m sopra `heightBase − 100`. Campo dell'Osso è quotato 1550 m in OSM e il borgo è nel fondovalle: prima di renderizzare insieme le due quote va misurato il dislivello sul DEM. Se non entra in 655 m, si allarga la codifica. Non si spezza la regione solo per questo.
-- Altezze degli edifici quasi assenti in OSM: CTR Lazio e un default per il tessuto storico, come già scritto in `docs/fase0-dati-osm.md`.
-- Alberi: ESA WorldCover, non i pochi node OSM.
-- Heading provvisorio 45°, da confermare sul reticolo stradale (due facciate visibili, Aniene preferibilmente a sinistra).
+- `geoidM` 49,78 m (EGM2008 all'origine, GeographicLib GeoidEval).
+- `groundH` 547,7 m ellissoidici (DSM sulla Rocca 497,9 m + geoide).
+- `heightBase` 420 m ellissoidici. Il dislivello ortometrico misurato è 1380 m (fondovalle 365 m, cresta di Monte Livata 1745 m) e non entra nei 655 m del riferimento. La codifica si allarga a 3 cm per unità a 16 bit (`codificaAltezze`), una sola regione.
+- Altezze: unità volumetriche CTR (campo `UN_VOL_AV`) dove il volume cade nell'edificio; altrimenti `building:levels`, altrimenti il default di `config/altezze.json`.
+- Alberi: ESA WorldCover (classi 10 e 20) più i node OSM.
+- Heading ancora provvisorio a 45°.
 
 ## FASE 2 — render isometrico
 
@@ -96,7 +98,7 @@ Non creare ancora `vercel.json` né `wrangler.jsonc`: senza sito e senza bucket 
 
 ## Cosa resta volutamente fuori
 
-- Implementazione di fetch, ground, scene, camera, render, paint, viewer, export, publish, deploy.
+- Implementazione di camera nel renderer, render, paint, viewer, export, publish, deploy. Fetch, ground e scene sono la FASE 1.
 - Immagini di stile e prompt di pittura.
 - Workspace npm `pipeline/` + `web/`: ha senso quando quei pacchetti hanno dipendenze (Three.js, sharp, Astro). Oggi c'è un solo `package.json`.
-- `geoidM`, `groundH`, `heightBase` e la conferma dell'heading.
+- La conferma dell'heading. `geoidM`, `groundH` e `heightBase` sono fissati in FASE 1.

@@ -10,14 +10,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ErrorePrevisto, interrogaOverpass, timeoutSecondi } from "../pipeline/src/overpass.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONFIG_PATH = path.join(ROOT, "config", "areas.json");
-
-const ENDPOINT_DEFAULT = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-];
 
 const CATEGORIE = [
   { id: "building", etichetta: "Edifici (building)", filtri: ['["building"]'] },
@@ -31,8 +27,6 @@ const CATEGORIE = [
   { id: "piste", etichetta: "Piste (piste:type)", filtri: ['["piste:type"]'] },
   { id: "aerialway", etichetta: "Impianti (aerialway)", filtri: ['["aerialway"]'] },
 ];
-
-class ErrorePrevisto extends Error {}
 
 function richiediNode24() {
   const major = Number(process.versions.node.split(".")[0]);
@@ -141,63 +135,6 @@ function queryOverpass(bbox, oggetti, timeout) {
   return `[out:json][timeout:${timeout}];\n${conteggi}\n${ids}\n`;
 }
 
-function endpoints() {
-  const raw = process.env.OVERPASS_URL?.trim();
-  const list = raw
-    ? raw.split(",").map((s) => s.trim()).filter(Boolean)
-    : ENDPOINT_DEFAULT;
-  return [...new Set(list)];
-}
-
-function timeoutSecondi() {
-  const n = Number(process.env.OVERPASS_TIMEOUT ?? 60);
-  if (!Number.isFinite(n)) return 60;
-  return Math.min(180, Math.max(10, Math.round(n)));
-}
-
-function userAgent() {
-  return process.env.OVERPASS_USER_AGENT?.trim()
-    || "subiaco-isometrica/0.1 (verifica copertura OSM; https://github.com/NVerlini/subiaco-isometrica)";
-}
-
-async function interroga(query, timeout) {
-  const lista = endpoints();
-  const tentativi = Math.max(lista.length, 4);
-  let ultimo = "nessuna risposta";
-  for (let i = 0; i < tentativi; i++) {
-    const url = lista[i % lista.length];
-    const host = new URL(url).host;
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "User-Agent": userAgent(),
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-        },
-        body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(timeout * 1000),
-      });
-      if (response.ok) {
-        const json = await response.json();
-        if (json.remark) throw new ErrorePrevisto(`Overpass (${host}): ${json.remark}`);
-        return { json, host };
-      }
-      const corpo = (await response.text()).slice(0, 240).replace(/\s+/g, " ");
-      ultimo = `${host} HTTP ${response.status} ${corpo}`;
-      const ritentabile = [429, 502, 503, 504].includes(response.status);
-      console.error(`  ${ultimo}${ritentabile ? ", nuovo tentativo…" : ""}`);
-      if (!ritentabile) throw new ErrorePrevisto(`Overpass ha rifiutato la query (${ultimo}).`);
-    } catch (err) {
-      if (err instanceof ErrorePrevisto) throw err;
-      ultimo = `${host} ${err.name === "TimeoutError" ? "timeout" : err.message}`;
-      console.error(`  ${ultimo}, nuovo tentativo…`);
-    }
-    if (i < tentativi - 1) await new Promise((res) => setTimeout(res, [1500, 4000, 8000, 12000][i] ?? 12000));
-  }
-  throw new ErrorePrevisto(`Overpass non raggiungibile dopo ${tentativi} tentativi. Ultimo errore: ${ultimo}`);
-}
-
 function stampaConteggi(elements) {
   const conteggi = elements.filter((el) => el.type === "count");
   if (conteggi.length !== CATEGORIE.length) {
@@ -277,7 +214,7 @@ async function main() {
   console.log(`BBox (S, W, N, E): ${formattaBbox(area.bbox)}`);
   console.log("Query: out count + out ids (nessuna geometria, nessun file scritto)");
 
-  const { json, host } = await interroga(query, timeout);
+  const { json, host } = await interrogaOverpass(query, { timeoutSec: timeout });
   const elements = json.elements;
   if (!Array.isArray(elements)) throw new ErrorePrevisto(`Risposta Overpass senza elenco elementi (${host}).`);
 

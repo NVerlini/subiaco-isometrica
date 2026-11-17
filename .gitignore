@@ -175,3 +175,9 @@ test-results/
 blob-report/
 
 .DS_Store
+
+# Segreti e artefatti locali di hosting (revisione di sicurezza)
+.vercel/
+.dev.vars
+*.pem
+*.key

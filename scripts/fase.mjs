@@ -4,7 +4,7 @@
  * Stesso ordine di Mondo Isometrico / isometricworld:
  * fetch → ground → scene → render → paint → export → viewer → publish → deploy.
  * Il contratto (camera, zoom, cache) è in config/pipeline.json.
- * Non scarica dati e non scrive file: la FASE 1 non è iniziata.
+ * fetch, ground e scene sono la FASE 1. Gli stadi successivi restano segnaposto.
  */
 
 const STADI = {
@@ -63,9 +63,14 @@ if (!stadio) {
   process.exit(1);
 }
 
-console.log(`${nome} — FASE ${stadio.fase}, non ancora implementata.`);
-console.log(stadio.titolo + ".");
-console.log(stadio.dettaglio);
-console.log("Pipeline prevista: fetch → ground → scene → render → paint → export → viewer → publish → deploy.");
-console.log("Nessun dato è stato scaricato e nessun file è stato scritto.");
-console.log("Vedi docs/riferimenti-pipeline.md e ROADMAP.md.");
+if (nome === "fetch" || nome === "ground" || nome === "scene") {
+  const modulo = await import(`../pipeline/src/${nome}.mjs`);
+  await modulo.esegui(process.argv.slice(3));
+} else {
+  console.log(`${nome} — FASE ${stadio.fase}, non ancora implementata.`);
+  console.log(stadio.titolo + ".");
+  console.log(stadio.dettaglio);
+  console.log("Pipeline prevista: fetch → ground → scene → render → paint → export → viewer → publish → deploy.");
+  console.log("Nessun dato è stato scaricato e nessun file è stato scritto.");
+  console.log("Vedi docs/riferimenti-pipeline.md e ROADMAP.md.");
+}
