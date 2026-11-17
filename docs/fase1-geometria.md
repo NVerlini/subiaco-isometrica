@@ -128,7 +128,9 @@ Le piste OSM nella finestra sono le sette discese e il collegamento già elencat
 
 ## Aperto per la FASE 2
 
-- Il render ortografico a tile (1024 px, pitch 45°, Chromium) non c'è. PNG e GLB sono un'anteprima geometrica, non la piramide.
+Chiuso il 17 novembre 2026: vedi `docs/fase2-render.md`. Restano utili le note sotto su ciò che la geometria non misura da sola.
+
+- Il render ortografico a tile c'è, con heading 315°. PNG e GLB di questa fase restano l'anteprima geometrica, non la piramide.
 - Il renderer del riferimento va adattato al passo di 3 cm: con 1 cm la montagna esce dalla finestra.
 - L'heading 45° è ancora una proposta. Si congela al primo render.
 - Il suolo sotto il borgo è un DSM aperto, non la quota di strada della CTR. Su un isolato largo l'apertura da 40 m può lasciare un dosso.

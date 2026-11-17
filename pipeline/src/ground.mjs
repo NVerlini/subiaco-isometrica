@@ -24,6 +24,7 @@ import { creaQuadro } from "./geo.mjs";
 import { ErrorePrevisto } from "./overpass.mjs";
 import { anelliDi, lineaDi } from "./osm.mjs";
 import { COLORI, coloreClasse, linea, riempi, scriviPng, tela, testo } from "./png.mjs";
+import { profiloStradale } from "./strade.mjs";
 import { finestra } from "./worldcover.mjs";
 
 const PASSO = 10;
@@ -115,7 +116,8 @@ async function groundArea(area, regione) {
     }
   }
 
-  let suolo = filtro(filtro(dsm, nx, ny, APERTURA_CELLE, "min"), nx, ny, APERTURA_CELLE, "max");
+  const erosione = filtro(dsm, nx, ny, APERTURA_CELLE, "min");
+  let suolo = filtro(erosione, nx, ny, APERTURA_CELLE, "max");
   const acqua = new Uint8Array(n);
   const lineeAcqua = [];
   const poligoniAcqua = [];
@@ -153,6 +155,24 @@ async function groundArea(area, regione) {
       }
     }
   }
+  const classiStrada = new Set([
+    "motorway", "trunk", "primary", "secondary", "tertiary", "unclassified",
+    "residential", "living_street", "service", "pedestrian", "track",
+  ]);
+  const stradeFile = path.join(raw, "roads.json");
+  const sorgenteStrade = existsSync(stradeFile) ? leggi(stradeFile) : leggi(path.join(raw, "osm.json"));
+  const lineeStrada = [];
+  for (const el of sorgenteStrade.elements ?? []) {
+    const classe = String(el.tags?.highway ?? "").replace(/_link$/, "");
+    if (!classiStrada.has(classe)) continue;
+    const spezzata = lineaDi(el);
+    if (!spezzata) continue;
+    lineeStrada.push(spezzata.map(([lon, lat]) => quadro.piano(lon, lat)));
+  }
+  const statStrade = profiloStradale({
+    suolo, erosione, dsm, cover, nx, ny, x0, y0, passo: PASSO, linee: lineeStrada,
+  });
+
   for (let i = 0; i < n; i++) {
     if (!acqua[i]) continue;
     suolo[i] = Math.max(suolo[i] - 1.5, dsm[i] - 8);
@@ -182,7 +202,8 @@ async function groundArea(area, regione) {
     geoidM: regione.geoidM,
     quotaMin: Math.round(qmin * 100) / 100,
     quotaMax: Math.round(qmax * 100) / 100,
-    nota: "height.bin è il suolo ortometrico (DSM aperto, acqua incisa). dsm.bin è il Copernicus grezzo. Le quote sono metri EGM2008, riga per riga da sud a nord.",
+    nota: "height.bin è il suolo ortometrico (DSM aperto, carreggiate riportate all'erosione, acqua incisa). dsm.bin è il Copernicus grezzo. Le quote sono metri EGM2008, riga per riga da sud a nord.",
+    quotaStrada: statStrade,
     worldcover: {
       conteggio: wc.conteggio,
       licenza: "CC BY 4.0",
@@ -203,6 +224,7 @@ async function groundArea(area, regione) {
   }));
   scriviAnteprima(path.join(out, "anteprima.png"), { nx, ny, x0, y0, cover, suolo, qmin, qmax, quadro, lineeAcqua, poligoniAcqua });
   console.log(`  griglia ${nx}×${ny} @ ${PASSO} m, suolo ${qmin.toFixed(1)}…${qmax.toFixed(1)} m`);
+  console.log(`  strade: ${lineeStrada.length} carreggiate, ${statStrade.celle} celle abbassate (media ${statStrade.abbassamentoMedioM} m)`);
   console.log(`  acqua: ${poligoniAcqua.length} poligoni, ${lineeAcqua.length} linee (buffer ${BUFFER_ACQUA_M} m sulle linee)`);
   console.log(`  WorldCover: ${riassuntoClassi(wc.conteggio)}`);
   console.log(`  scritto ${out}`);

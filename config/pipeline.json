@@ -1,5 +1,5 @@
 {
-  "fonte": "Numeri dello stile comune a krasun/isometricworld e dg996/mondoisometrico. Non è codice copiato: la proiezione si implementa in FASE 2. Vedi docs/riferimenti-pipeline.md.",
+  "fonte": "Numeri dello stile comune a krasun/isometricworld e dg996/mondoisometrico. La proiezione e il render sono in pipeline/src/geo.mjs, pipeline/src/render.mjs e pipeline/page/renderer.js. Vedi docs/riferimenti-pipeline.md.",
   "stile": {
     "pitchDeg": 45,
     "mpp": 0.25,
@@ -28,17 +28,17 @@
   "regione": {
     "id": "subiaco",
     "titolo": "Subiaco e Monte Livata",
-    "stato": "quote misurate in FASE 1; heading ancora provvisorio",
-    "congelareAlPrimoRender": true,
+    "stato": "heading congelato in FASE 2",
+    "congelareAlPrimoRender": false,
     "origine": {
       "lat": 41.92609,
       "lon": 13.09482,
       "h": 0,
       "riferimento": "Rocca Abbaziale, docs/fase0-dati-osm.md"
     },
-    "headingDeg": 45,
-    "headingStato": "provvisorio",
-    "headingNota": "Proposta come a Roma (centro irregolare, 45°). Va confermata sul reticolo delle strade, con l'Aniene preferibilmente a sinistra, prima del primo render. Dopo le tile non si cambia: si sposterebbe ogni tile.",
+    "headingDeg": 315,
+    "headingStato": "congelato",
+    "headingNota": "Congelato il 17 novembre 2026 dopo il confronto in docs/fase2-render.md. 315° è la diagonale a 45° che mette l'Aniene a sinistra e in primo piano: si vedono insieme la curva del fiume (Ponte San Francesco), lo sperone della Rocca e il borgo. A 45° il fiume finisce a destra. A 0° la vista è quasi una pianta. A 285° il borgo si schiaccia contro l'acqua. Non si cambia: ogni tile si sposterebbe.",
     "geoidM": 49.78,
     "geoidFonte": "EGM2008 da GeographicLib GeoidEval 2.5.2, 17 novembre 2026, all'origine (Rocca Abbaziale): 49.780 m. Stessa misura: Ponte San Francesco 49.757 m, Sacro Speco 49.832 m, Campo dell'Osso 50.052 m. Si usa il valore all'origine: tra borgo e Campo dell'Osso l'ondulazione cambia di circa 0,27 m.",
     "groundH": 547.7,
@@ -71,7 +71,7 @@
       "dislivelloM": 1379.8,
       "notaCampoDellOsso": "OSM segna ele=1550 sul node 1330030281. Il DSM nello stesso punto misura 1543 m."
     },
-    "quoteNota": "geoidM, groundH e heightBase sono fissati sulle misure del 17 novembre 2026 (vedi misureDem e docs/fase1-geometria.md). L'heading resta provvisorio fino al primo render.",
+    "quoteNota": "geoidM, groundH e heightBase sono fissati sulle misure del 17 novembre 2026 (vedi misureDem e docs/fase1-geometria.md). L'heading è congelato a 315° in FASE 2.",
     "unaSolaRegione": true,
     "motivoUnaRegione": "Centro e Monte Livata distano circa 5 km, molto sotto i circa 150 km entro cui il riferimento tiene una sola camera ENU. Una regione, una piramide, si scorre dal borgo alla montagna."
   },

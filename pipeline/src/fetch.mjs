@@ -22,7 +22,7 @@ import {
 import { assicuratiDem, apriDem, misuraAree } from "./dem.mjs";
 import { ErrorePrevisto, interrogaOverpass, timeoutSecondi } from "./overpass.mjs";
 import { dividi, queryArea } from "./osm.mjs";
-import { assicuratiUnita, scaricaCoperture } from "./ctr.mjs";
+import { assicuratiUnita, assicuratiUnita2020, scaricaCoperture } from "./ctr.mjs";
 import { assicuratiWorldcover } from "./worldcover.mjs";
 
 const PUNTI = {
@@ -108,23 +108,46 @@ async function fetchArea(area, force) {
   }
 
   const unvolFile = path.join(dir, "unvol.json");
-  if (!force && existsSync(unvolFile)) {
-    const unvol = JSON.parse(readFileSync(unvolFile, "utf8"));
-    console.log(`  UN_VOL in cache (${unvol.elementi?.length ?? 0} volumi, stato ${unvol.stato})`);
+  const unvolCache = existsSync(unvolFile) ? JSON.parse(readFileSync(unvolFile, "utf8")) : null;
+  const unvolPronto = !force && unvolCache?.stato === "ok" && unvolCache.schema >= 3;
+  if (unvolPronto) {
+    console.log(`  UN_VOL in cache (${unvolCache.elementi?.length ?? 0} volumi, schema ${unvolCache.schema})`);
   } else {
     try {
       const unvol = await assicuratiUnita(RAW, area.bbox);
       scrivi(unvolFile, { ...unvol, bbox: area.bbox, scaricato: new Date().toISOString() });
-      console.log(`  UN_VOL: ${unvol.elementi.length} volumi con altezza nella bbox (CC BY 4.0, Regione Lazio)`);
+      console.log(`  UN_VOL: ${unvol.elementi.length} volumi con pianta nella bbox (CC BY 4.0, Regione Lazio)`);
     } catch (err) {
       scrivi(unvolFile, {
         stato: "non-disponibile",
+        schema: 2,
         elementi: [],
         errore: err.message,
         download: "2014_DBGT_5K_SHP/strati-informativi/Roma/DBT_Lazio_RM376.zip",
         nota: "Senza lo zip del foglio RM376 le altezze tornano al WFS delle coperture e poi al default.",
       });
       console.error(`  UN_VOL non ottenuto, si usa il fallback: ${err.message}`);
+    }
+  }
+
+  const unvol2020File = path.join(dir, "unvol-2020.json");
+  const cache2020 = existsSync(unvol2020File) ? JSON.parse(readFileSync(unvol2020File, "utf8")) : null;
+  if (!force && cache2020?.stato === "ok" && cache2020.schema >= 3) {
+    console.log(`  DBGT 2020 in cache (${cache2020.elementi?.length ?? 0} volumi, stato ${cache2020.stato})`);
+  } else {
+    try {
+      const recente = await assicuratiUnita2020(RAW, area.bbox);
+      scrivi(unvol2020File, { ...recente, bbox: area.bbox, scaricato: new Date().toISOString() });
+    } catch (err) {
+      scrivi(unvol2020File, {
+        stato: "non-disponibile",
+        schema: 2,
+        elementi: [],
+        errore: err.message,
+        download: "2020_DBGT_5K_SHP/Subiaco.zip",
+        nota: "Senza il DBGT 2020 restano il foglio 2014 e, per chi non ha volume, il default di tipologia.",
+      });
+      console.error(`  DBGT 2020 non ottenuto: ${err.message}`);
     }
   }
 }
