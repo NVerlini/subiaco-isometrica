@@ -5,9 +5,11 @@
 - [isometricworld](https://github.com/krasun/isometricworld) di krasun, licenza MIT
 
 ## Codice
-In FASE 0 non è stato copiato sorgente né da Mondo Isometrico né da isometricworld.
-È stata adottata solo la forma della pipeline (fetch → ground → scene → render → paint → viewer)
-e la dipendenza `playwright-core` per il Chromium di sistema, da usare quando esisterà il render.
+In FASE 0 non è stato copiato sorgente né da Mondo Isometrico né da isometricworld, e non è stato fatto un fork.
+È stata adottata la forma della pipeline (fetch → ground → scene → render → paint → export → viewer → publish → deploy),
+la dipendenza `playwright-core` per il Chromium di sistema, e i parametri numerici dello stile
+(camera a 45°, tile, zoom, finestre di pittura), trascritti in `config/pipeline.json`.
+Il dettaglio di cosa si prende e in quale fase è in `docs/riferimenti-pipeline.md`.
 
 Se in FASE 1 si adatta un file di quei repository, va conservata la nota di copyright MIT:
 Copyright (c) 2026 Dmytro Krasun; per il fork Mondo Isometrico anche Copyright (c) 2026 Domenico Gagliardi.

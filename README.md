@@ -19,7 +19,7 @@ Ispirata a [Mondo Isometrico](https://github.com/dg996/mondoisometrico) di Domen
 - [Copernicus DEM](https://spacedata.copernicus.eu/collections/copernicus-digital-elevation-model)
 
 ## Roadmap
-Vedi [ROADMAP.md](ROADMAP.md). L'analisi iniziale dei dati OpenStreetMap è in [docs/fase0-dati-osm.md](docs/fase0-dati-osm.md). Le bounding box e i landmark stanno in [config/areas.json](config/areas.json).
+Vedi [ROADMAP.md](ROADMAP.md). L'analisi iniziale dei dati OpenStreetMap è in [docs/fase0-dati-osm.md](docs/fase0-dati-osm.md). Le bounding box e i landmark stanno in [config/areas.json](config/areas.json). Camera, zoom, cache e cosa prendere dai riferimenti fase per fase stanno in [docs/riferimenti-pipeline.md](docs/riferimenti-pipeline.md) e in [config/pipeline.json](config/pipeline.json).
 
 ## Sviluppo
 
@@ -51,16 +51,22 @@ npm run check:osm
 | `npm run scene` | Segnaposto FASE 1 (scena). |
 | `npm run render` | Segnaposto FASE 2 (render a tile). |
 | `npm run paint` | Segnaposto FASE 3 (pittura). |
-| `npm run dev` | Segnaposto FASE 4 (viewer). |
+| `npm run export` | Segnaposto della piramide di tile (zoom 8 → 2). Non pubblica. |
+| `npm run dev` | Segnaposto FASE 4 (viewer Astro e OpenSeadragon). |
+| `npm run publish` | Segnaposto FASE 5 (upload delle tile). Non contatta alcun servizio. |
+| `npm run deploy` | Segnaposto FASE 5 (sito). Non contatta alcun servizio. |
 
-I segnaposto non scaricano nulla: stampano lo stadio previsto e terminano. La pipeline prevista è la stessa dei progetti di riferimento: fetch → ground → scene → render → paint → viewer.
+I segnaposto non scaricano nulla e non contattano servizi di hosting: stampano lo stadio previsto e terminano. La pipeline prevista è la stessa dei progetti di riferimento: fetch → ground → scene → render → paint → export → viewer → publish → deploy.
+
+Non serve un fork di Mondo Isometrico né di isometricworld. I due progetti sono MIT: il codice si può adattare più avanti, file per file, tenendo la nota di copyright. Questo repository resta indipendente. Il perché è in [docs/riferimenti-pipeline.md](docs/riferimenti-pipeline.md).
 
 ### Cartelle
 - `config/areas.json` — bounding box in formato S, W, N, E e landmark con id OSM
+- `config/pipeline.json` — camera a 45°, piramide di zoom, finestre di pittura, cache, regione provvisoria
 - `scripts/check-osm.mjs` — verifica Overpass (`out count`, senza geometrie)
 - `scripts/fase.mjs` — segnaposto degli stadi
-- `pipeline/` — codice futuro di fetch, ground, scene, render e paint
-- `web/` — viewer futuro
+- `pipeline/src`, `pipeline/page`, `pipeline/style` — codice futuro di fetch, ground, scene, render e paint; lo stile grafico arriva in FASE 3
+- `web/src`, `web/public` — viewer futuro (Astro e OpenSeadragon, non ancora dipendenze)
 
 ## Licenza
 Codice: [MIT](LICENSE). I dati restano soggetti alle licenze delle rispettive fonti: vedi [ATTRIBUTION.md](ATTRIBUTION.md).

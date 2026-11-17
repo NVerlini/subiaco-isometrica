@@ -14,7 +14,10 @@
     "scene": "node scripts/fase.mjs scene",
     "render": "node scripts/fase.mjs render",
     "paint": "node scripts/fase.mjs paint",
-    "dev": "node scripts/fase.mjs dev"
+    "export": "node scripts/fase.mjs export",
+    "dev": "node scripts/fase.mjs dev",
+    "publish": "node scripts/fase.mjs publish",
+    "deploy": "node scripts/fase.mjs deploy"
   },
   "dependencies": {
     "playwright-core": "^1.65.0"

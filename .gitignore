@@ -156,11 +156,18 @@ vite.config.ts.timestamp-*
 .nx/workspace-data
 .nx/migrate-runs
 
-# Dati scaricati, cache e prodotti della pipeline (non versionare)
+# Dati scaricati, cache e prodotti della pipeline (non versionare).
+# data/derived e data/web-state sono il lavoro di render e pittura: restano locali.
+# Le tile pubblicate stanno su R2, non in web/public/regions.
 data/
 cache/
 tiles/
 output/
+web/public/regions/
+web/dist/
+web/.astro/
+pipeline/page/dist/
+.wrangler/
 
 # Report di browser automation (playwright-core non scarica Chromium)
 playwright-report/

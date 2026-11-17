@@ -18,7 +18,7 @@ Fonti dati: OpenStreetMap, Carta Tecnica Regione Lazio, ESA WorldCover, Copernic
 - [x] Definire bounding box del centro storico
 - [x] README e ROADMAP.md nel repo
 
-Esito: repo `NVerlini/subiaco-isometrica`. Base a scaffold, non un fork git e senza copia di sorgente: stessi stadi della pipeline (`fetch` → `ground` → `scene` → `render` → `paint` → viewer) e `playwright-core` per Chromium di sistema, come in Mondo Isometrico. Le bounding box (centro storico, centro + monasteri, Monte Livata) e i landmark stanno in `config/areas.json`. La copertura OSM si riverifica con `npm run check:osm` (Overpass `out count`, senza scaricare geometrie). L'ambiente è descritto in `.env.example`; il file `.env` resta locale e non va versionato.
+Esito: repo `NVerlini/subiaco-isometrica`, indipendente, senza fork. Stessi stadi della pipeline e `playwright-core` per Chromium di sistema, senza copia di sorgente. Le bounding box e i landmark stanno in `config/areas.json`. Camera (pitch 45°, 0,25 m/px, tile 1024), piramide web (tile 512, zoom 8→2), pittura a finestre e percorsi di cache stanno in `config/pipeline.json`. Il confronto fase per fase con i riferimenti è in `docs/riferimenti-pipeline.md`. La copertura OSM si riverifica con `npm run check:osm` (Overpass `out count`, senza scaricare geometrie). L'ambiente è descritto in `.env.example`; il file `.env` resta locale e non va versionato.
 
 ## FASE 1 – Geometria e dati
 - [ ] Fetch OSM: buildings, roads, water, landuse, monuments
