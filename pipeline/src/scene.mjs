@@ -26,7 +26,8 @@ import {
   statoAerialway,
   tipologia,
 } from "./altezze.mjs";
-import { areaM2, bboxInterseca, centroide, creaQuadro, nelPoligono } from "./geo.mjs";
+import { areaM2, bboxInterseca, centroide, creaQuadro, distanzaAnello, nelPoligono } from "./geo.mjs";
+import { separaTorre } from "./torri.mjs";
 import { meshVuoto, scriviGlb } from "./glb.mjs";
 import { ErrorePrevisto } from "./overpass.mjs";
 import { edificiDi, eEdificio, idOsm, lineaDi, puntoDi } from "./osm.mjs";
@@ -132,6 +133,7 @@ function scenaArea(area, config, pipeline, altezze) {
   const osm = leggi(path.join(raw, "osm.json"));
   const ctr = leggi(path.join(raw, "ctrn.json"));
   const unvol = esisteJson(path.join(raw, "unvol.json"));
+  const unvol2020 = esisteJson(path.join(raw, "unvol-2020.json"));
   const { nx, ny, x0, y0, passoM } = meta;
 
   const dtm = (e, n) => campiona(suolo, nx, ny, x0, y0, passoM, e, n);
@@ -139,7 +141,9 @@ function scenaArea(area, config, pipeline, altezze) {
   const landmarkPerOsm = new Map();
   for (const lm of config.landmark) landmarkPerOsm.set(lm.osm, lm);
   const coperture = (ctr.stato === "ok" ? ctr.elementi : []).map(grondaDi).filter(Boolean);
-  const volumi = unvol?.stato === "ok" ? unvol.elementi : [];
+  const volumi2014 = (unvol?.stato === "ok" ? unvol.elementi : []).map((v) => ({ ...v, fonte: v.fonte ?? "dbgt-2014" }));
+  const volumi2020 = (unvol2020?.stato === "ok" ? unvol2020.elementi : []).map((v) => ({ ...v, fonte: "dbgt-2020" }));
+  const volumi = volumi2014.concat(volumi2020);
   const volumiPerCella = indicizza(volumi);
 
   const edifici = [];
@@ -159,11 +163,17 @@ function scenaArea(area, config, pipeline, altezze) {
       const centro = centroide(anello);
       const [ce, cn] = quadro.piano(centro[0], centro[1]);
       const suoloM = dtm(ce, cn);
-      let unitaM = null;
-      for (const vol of vicini(volumiPerCella, anello)) {
-        if (vol.h <= (unitaM ?? 0)) continue;
-        if (nelPoligono(vol.centro, anello)) unitaM = vol.h;
+      const agganciati = volumiEdificio(anello, volumiPerCella, quadro, superficie);
+      for (const vol of agganciati.volumi) {
+        if (Number.isFinite(vol._e) || !vol.centro) continue;
+        const [e, n] = quadro.piano(vol.centro[0], vol.centro[1]);
+        vol._e = e;
+        vol._n = n;
       }
+      const split = separaTorre(agganciati.volumi, superficie);
+      const unitaM = split.corpo?.h ?? null;
+      const fonteVolume = split.corpo?.fonte ?? null;
+      const aggancio = agganciati.aggancio;
       let ctrM = null;
       let quotaGronda = null;
       let quotaColmo = null;
@@ -194,6 +204,9 @@ function scenaArea(area, config, pipeline, altezze) {
         suoloM: suoloM == null ? null : Math.round(suoloM * 10) / 10,
         altezzaM: scelta.altezzaM,
         fonteAltezza: scelta.fonteAltezza,
+        fonteVolume: scelta.fonteAltezza === "ctr-unita" ? fonteVolume : null,
+        aggancio,
+        parti: partiEdificio({ anello, buchi: volume.buchi ?? [], scelta, split }),
         quotaGrondaM: quotaGronda,
         quotaColmoM: quotaColmo,
         livelli: el.tags?.["building:levels"] ?? null,
@@ -342,6 +355,13 @@ function scenaArea(area, config, pipeline, altezze) {
   const elementiPrevisti = area.id === "monte-livata" ? [pistaPrevista(config.monteLivata)].filter(Boolean) : [];
   const fonti = { "ctr-unita": 0, "ctr-gronda": 0, "building:levels": 0, "default-tipologia": 0 };
   for (const ed of edifici) fonti[ed.fonteAltezza] = (fonti[ed.fonteAltezza] ?? 0) + 1;
+  const torri = edifici.flatMap((ed) => (ed.parti ?? []).filter((p) => p.ruolo === "torre").map((p) => ({
+    id: ed.id,
+    nome: ed.nome,
+    altezzaM: p.altezzaM,
+    corpoM: ed.altezzaM,
+  })));
+  const da2020 = edifici.filter((ed) => ed.fonteVolume === "dbgt-2020").length;
 
   const landmark = config.landmark.map((lm) => {
     const disegnato = edifici.find((ed) => ed.landmark === lm.id) ?? ponti.find((p) => p.landmark === lm.id);
@@ -375,11 +395,14 @@ function scenaArea(area, config, pipeline, altezze) {
     ],
     ctr: {
       wfs: { stato: ctr.stato, elementi: ctr.elementi?.length ?? 0, errore: ctr.errore ?? null },
-      unita: { stato: unvol?.stato ?? "assente", elementi: volumi.length, errore: unvol?.errore ?? null },
+      unita: { stato: unvol?.stato ?? "assente", elementi: volumi2014.length, schema: unvol?.schema ?? null, errore: unvol?.errore ?? null },
+      unita2020: { stato: unvol2020?.stato ?? "assente", elementi: volumi2020.length, errore: unvol2020?.errore ?? null },
     },
     conteggi: {
       edifici: edifici.length,
       altezze: fonti,
+      torri: torri.length,
+      volumi2020: da2020,
       strade: strade.length,
       alberiOsm: alberi.filter((a) => a.fonte === "osm" || a.fonte === "default").length,
       alberiWorldcover: forestali,
@@ -397,7 +420,10 @@ function scenaArea(area, config, pipeline, altezze) {
     alberi: alberi.map((a) => ({
       lat: a.lat,
       lon: a.lon,
+      e: a.e ?? null,
+      n: a.n ?? null,
       altezzaM: a.altezzaM,
+      raggioM: a.raggioM,
       fonte: a.fonte,
       suoloM: a.suoloM,
     })),
@@ -409,19 +435,23 @@ function scenaArea(area, config, pipeline, altezze) {
   const mesh = meshVuoto();
   aggiungiTerreno(mesh, { nx, ny, x0, y0, passoM, suolo, cover, quadro });
   for (const ed of edifici) {
-    const anello = ed.anello.map(([lon, lat]) => quadro.piano(lon, lat));
-    const basi = [];
-    const tetti = [];
-    for (const [e, n] of anello) {
-      const q = dtm(e, n) ?? ed.suoloM ?? meta.quotaMin;
-      const z = quadro.suOrtometrico(e, n, q);
-      basi.push(z);
-      tetti.push(z + ed.altezzaM);
+    for (const parte of ed.parti ?? [{ ruolo: "corpo", anello: ed.anello, altezzaM: ed.altezzaM, buchi: ed.buchi }]) {
+      const anello = parte.anello.map(([lon, lat]) => quadro.piano(lon, lat));
+      const basi = [];
+      const tetti = [];
+      for (const [e, n] of anello) {
+        const q = dtm(e, n) ?? ed.suoloM ?? meta.quotaMin;
+        const z = quadro.suOrtometrico(e, n, q);
+        basi.push(z);
+        tetti.push(z + parte.altezzaM);
+      }
+      const colore = parte.ruolo === "torre"
+        ? [0.55, 0.32, 0.28]
+        : ed.landmark
+          ? [0.72, 0.22, 0.18]
+          : [0.62, 0.38, 0.3];
+      aggiungiTetto(mesh, anello, basi, tetti, colore);
     }
-    const colore = ed.landmark
-      ? [0.72, 0.22, 0.18]
-      : [0.62, 0.38, 0.3];
-    aggiungiTetto(mesh, anello, basi, tetti, colore);
   }
   for (const ponte of ponti) {
     const pts = ponte.linea.map(([lon, lat]) => quadro.piano(lon, lat));
@@ -476,10 +506,14 @@ function scenaArea(area, config, pipeline, altezze) {
     impianti: impianti.map((i) => ({ id: i.id, nome: i.nome, stato: i.stato, aerialway: i.aerialway })),
     piste: piste.map((p) => ({ id: p.id, nome: p.nome, tipo: p.tipo })),
     elementiPrevisti,
+    torri,
+    volumi2020: da2020,
     output: ["scene.json", "anteprima.png", "anteprima-isometrica.png", "scena.glb"],
   };
   writeFileSync(path.join(out, "report.json"), JSON.stringify(report, null, 2));
-  console.log(`  edifici ${edifici.length} (CTR unità ${fonti["ctr-unita"]}, gronda ${fonti["ctr-gronda"]}, livelli ${fonti["building:levels"]}, default ${fonti["default-tipologia"]})`);
+  console.log(`  edifici ${edifici.length} (CTR unità ${fonti["ctr-unita"]}, di cui DBGT 2020 ${da2020}, gronda ${fonti["ctr-gronda"]}, livelli ${fonti["building:levels"]}, default ${fonti["default-tipologia"]})`);
+  console.log(`  torri staccate dal corpo: ${torri.length}`);
+  for (const torre of torri) console.log(`    ${torre.nome ?? torre.id}: corpo ${torre.corpoM} m, torre ${torre.altezzaM} m`);
   console.log(`  alberi OSM ${documento.conteggi.alberiOsm}, WorldCover ${forestali}, strade ${strade.length}`);
   for (const lm of landmark) {
     console.log(`  landmark ${lm.nome}: ${lm.stato}${lm.fonteAltezza ? ` (${lm.fonteAltezza}, ${lm.altezzaM} m)` : ""}`);
@@ -596,8 +630,12 @@ function scriviPiano(file, ctx) {
     for (let i = 1; i < pts.length; i++) linea(t, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], COLORI.strada, spesso);
   }
   for (const ed of ctx.edifici) {
-    const pts = ed.anello.map(([lon, lat]) => aPx(lon, lat));
-    riempi(t, pts, ed.landmark ? COLORI.landmark : COLORI.edificio);
+    const parti = ed.parti?.length ? ed.parti : [{ ruolo: "corpo", anello: ed.anello }];
+    for (const parte of parti) {
+      const pts = parte.anello.map(([lon, lat]) => aPx(lon, lat));
+      const colore = parte.ruolo === "torre" ? [120, 64, 52] : ed.landmark ? COLORI.landmark : COLORI.edificio;
+      riempi(t, pts, colore);
+    }
     if (ed.landmark && ed.nome) {
       const c = centroide(ed.anello);
       const [x, y] = aPx(c[0], c[1]);
@@ -631,11 +669,13 @@ function scriviIso(file, ctx) {
     }
   }
   for (const ed of ctx.edifici) {
-    const c = centroide(ed.anello);
-    const [e, n] = ctx.quadro.piano(c[0], c[1]);
-    const q = ctx.dtm(e, n) ?? ed.suoloM ?? 0;
-    const z = ctx.quadro.suOrtometrico(e, n, q) + ed.altezzaM;
-    punti.push(ctx.quadro.pixel(e, n, z));
+    for (const parte of ed.parti ?? [{ anello: ed.anello, altezzaM: ed.altezzaM }]) {
+      const c = centroide(parte.anello);
+      const [e, n] = ctx.quadro.piano(c[0], c[1]);
+      const q = ctx.dtm(e, n) ?? ed.suoloM ?? 0;
+      const z = ctx.quadro.suOrtometrico(e, n, q) + parte.altezzaM;
+      punti.push(ctx.quadro.pixel(e, n, z));
+    }
   }
   let minX = Infinity;
   let minY = Infinity;
@@ -671,19 +711,24 @@ function scriviIso(file, ctx) {
     return (pa[0] * Math.sin(heading) + pa[1] * Math.cos(heading)) - (pb[0] * Math.sin(heading) + pb[1] * Math.cos(heading));
   });
   for (const ed of edifici) {
-    const anello = ed.anello.map(([lon, lat]) => ctx.quadro.piano(lon, lat));
-    const tetto = anello.map(([e, n]) => {
-      const q = ctx.dtm(e, n) ?? ed.suoloM ?? 0;
-      return proietta(e, n, ctx.quadro.suOrtometrico(e, n, q) + ed.altezzaM);
-    });
-    const piede = anello.map(([e, n]) => {
-      const q = ctx.dtm(e, n) ?? ed.suoloM ?? 0;
-      return proietta(e, n, ctx.quadro.suOrtometrico(e, n, q));
-    });
-    for (let i = 0; i < anello.length - 1; i++) {
-      riempi(t, [piede[i], piede[i + 1], tetto[i + 1], tetto[i]], ed.landmark ? [120, 36, 32] : [140, 78, 62]);
+    const parti = ed.parti?.length ? ed.parti : [{ ruolo: "corpo", anello: ed.anello, altezzaM: ed.altezzaM }];
+    for (const parte of parti) {
+      const anello = parte.anello.map(([lon, lat]) => ctx.quadro.piano(lon, lat));
+      const tetto = anello.map(([e, n]) => {
+        const q = ctx.dtm(e, n) ?? ed.suoloM ?? 0;
+        return proietta(e, n, ctx.quadro.suOrtometrico(e, n, q) + parte.altezzaM);
+      });
+      const piede = anello.map(([e, n]) => {
+        const q = ctx.dtm(e, n) ?? ed.suoloM ?? 0;
+        return proietta(e, n, ctx.quadro.suOrtometrico(e, n, q));
+      });
+      const muro = parte.ruolo === "torre" ? [110, 58, 48] : ed.landmark ? [120, 36, 32] : [140, 78, 62];
+      const colmo = parte.ruolo === "torre" ? [168, 96, 78] : ed.landmark ? COLORI.landmark : [196, 122, 96];
+      for (let i = 0; i < anello.length - 1; i++) {
+        riempi(t, [piede[i], piede[i + 1], tetto[i + 1], tetto[i]], muro);
+      }
+      riempi(t, tetto, colmo);
     }
-    riempi(t, tetto, ed.landmark ? COLORI.landmark : [196, 122, 96]);
   }
   testo(t, 12, 12, "ISOMETRICA", COLORI.testo, 3);
   scriviPng(file, w, h, t.rgb);
@@ -703,6 +748,53 @@ export async function esegui(argv) {
   console.log("Subiaco Isometrica — scene");
   for (const id of opt.ids) scenaArea(areaPerId(config, id), config, pipeline, altezze);
   console.log("scene completata. Output in data/derived/<area>/scene/.");
+}
+
+function partiEdificio({ anello, buchi, scelta, split }) {
+  const corpo = {
+    ruolo: "corpo",
+    anello,
+    buchi,
+    altezzaM: scelta.altezzaM,
+    fonteAltezza: scelta.fonteAltezza,
+    areaM2: split.corpo?.areaM2 ?? null,
+  };
+  if (!split.torri.length) return [corpo];
+  return [
+    corpo,
+    ...split.torri.map((vol) => ({
+      ruolo: "torre",
+      anello: vol.anello,
+      buchi: [],
+      altezzaM: Math.round(vol.h * 10) / 10,
+      fonteAltezza: "ctr-unita",
+      fonteVolume: vol.fonte ?? "dbgt-2014",
+      areaM2: vol.areaM2 ?? null,
+    })),
+  ];
+}
+
+function volumiEdificio(anello, celle, quadro, superficie) {
+  const piano = anello.map(([lon, lat]) => quadro.piano(lon, lat));
+  const stretti = { "dbgt-2014": [], "dbgt-2020": [] };
+  const rilassati = { "dbgt-2014": [], "dbgt-2020": [] };
+  for (const vol of vicini(celle, anello)) {
+    const fonte = vol.fonte === "dbgt-2020" ? "dbgt-2020" : "dbgt-2014";
+    if (nelPoligono(vol.centro, anello)) {
+      stretti[fonte].push(vol);
+      continue;
+    }
+    const [e, n] = quadro.piano(vol.centro[0], vol.centro[1]);
+    const dist = distanzaAnello([e, n], piano);
+    const areaOk = !vol.areaM2 || vol.areaM2 < Math.max(80, superficie * 1.6);
+    const verticeDentro = vol.anello?.some((p) => nelPoligono(p, anello));
+    if (areaOk && (dist <= 6 || verticeDentro)) rilassati[fonte].push(vol);
+  }
+  if (stretti["dbgt-2014"].length) return { volumi: stretti["dbgt-2014"], aggancio: "centroide-2014" };
+  if (stretti["dbgt-2020"].length) return { volumi: stretti["dbgt-2020"], aggancio: "centroide-2020" };
+  if (rilassati["dbgt-2014"].length) return { volumi: rilassati["dbgt-2014"], aggancio: "vicino-2014" };
+  if (rilassati["dbgt-2020"].length) return { volumi: rilassati["dbgt-2020"], aggancio: "vicino-2020" };
+  return { volumi: [], aggancio: null };
 }
 
 function indicizza(volumi) {

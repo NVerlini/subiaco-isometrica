@@ -4,7 +4,7 @@
  * Stesso ordine di Mondo Isometrico / isometricworld:
  * fetch → ground → scene → render → paint → export → viewer → publish → deploy.
  * Il contratto (camera, zoom, cache) è in config/pipeline.json.
- * fetch, ground e scene sono la FASE 1. Gli stadi successivi restano segnaposto.
+ * fetch, ground e scene sono la FASE 1. render ed export sono la FASE 2.
  */
 
 const STADI = {
@@ -63,7 +63,7 @@ if (!stadio) {
   process.exit(1);
 }
 
-if (nome === "fetch" || nome === "ground" || nome === "scene") {
+if (nome === "fetch" || nome === "ground" || nome === "scene" || nome === "render" || nome === "export") {
   const modulo = await import(`../pipeline/src/${nome}.mjs`);
   await modulo.esegui(process.argv.slice(3));
 } else {

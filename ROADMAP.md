@@ -9,7 +9,7 @@ Fonti dati: OpenStreetMap, Carta Tecnica Regione Lazio, ESA WorldCover, Copernic
 - [x] Roadmap definita
 - [x] Analisi copertura OSM e bounding box (docs/fase0-dati-osm.md)
 - [x] Profilo GitHub personale creato
-- [x] Via all'implementazione (FASE 0 pronta; FASE 1 geometria disponibile, render ancora da fare)
+- [x] Via all'implementazione (FASE 0 e FASE 1 pronte; FASE 2 render del centro storico, pittura ancora da fare)
 
 ## FASE 0 – Setup e preparazione
 - [x] Creare repo personale (`isometric-subiaco` o `mondoisometrico-subiaco`), fork o base su dg996/mondoisometrico o krasun/isometricworld
@@ -32,9 +32,11 @@ Esito: repo `NVerlini/subiaco-isometrica`, indipendente, senza fork. Stessi stad
 Esito (17 novembre 2026, dettaglio in `docs/fase1-geometria.md`): `npm run fetch && npm run ground && npm run scene` sul centro storico produce OSM in cache, suolo, `scene.json`, anteprima PNG e `scena.glb`. Sul centro, 194 edifici su 290 hanno l'altezza dall'unità volumetrica CTR (foglio DBT RM376, campo `UN_VOL_AV`); gli altri 96 usano il default di tipologia. La Rocca è a 19,6 m misurati, il Ponte San Francesco è la spezzata OSM. Santa Scolastica (31 m) e il Sacro Speco (9,2 m) stanno nella finestra `centro-monasteri`. Il DEM GLO-30, tile N41 E013, misura 365 m nel fondovalle e 1 745 m sulla cresta di Monte Livata: dislivello 1 380 m, quindi il pass altezze passa da 1 cm a 3 cm (`heightBase` 420, `geoidM` 49,78, `groundH` 547,7). A Monte Livata solo la seggiovia Monna dell'Orso è attiva; gli altri aerialway sono da verificare. La pista di fondo di Campo dell'Osso non è in OSM e non ha una geometria inventata. Il render a tile resta in FASE 2.
 
 ## FASE 2 – Rendering isometrico
-- [ ] Render ortografico 45° a tile
-- [ ] Test su area piccola del centro storico
-- [ ] Export tile di base (non dipinti)
+- [x] Render ortografico 45° a tile
+- [x] Test su area piccola del centro storico
+- [x] Export tile di base (non dipinti)
+
+Esito (17 novembre 2026, dettaglio in `docs/fase2-render.md`): heading congelato a **315°** (l'Aniene a sinistra e in primo piano, Rocca al centro, borgo verso destra). `npm run render` scrive 33 tile da 1024 px del centro storico, il pass altezze a 3 cm e un mosaico. La finestra Rocca–Ponte San Francesco è `--finestra rocca-ponte` (14 tile, 8,9 s). `npm run export` costruisce la piramide AVIF zoom 8→2 (132 tile da 512 px allo zoom nativo) in `data/web/regions/subiaco/`. Sant'Andrea è corpo 25,4 m più campanile 56,3 m e 42,4 m. Gli edifici senza volume DBGT scendono da 96 a 68. La carreggiata torna all'erosione del DSM (media −10,5 m sulle celle toccate). Le tile non sono nel repository.
 
 ## FASE 3 – Painting AI
 - [ ] Style reference (Roma Isometrica / Tel Aviv)

@@ -1,0 +1,62 @@
+/**
+ * Separa il corpo dal campanile quando il volume DBGT più alto è una torre.
+ * Copyright (c) 2026 NVerlini
+ *
+ * Il caso guida è la Basilica di Sant'Andrea: il volume di 56 m è una pianta
+ * piccola, accostata ad altri volumi alti solo lì vicino. La navata sta più
+ * in là ed è più bassa. Un castello compatto (la Rocca, 19,6 m su 577 m²)
+ * non viene spezzato.
+ */
+
+const AREA_TORRE_M2 = 360;
+const FRAZIONE_IMPRONTA = 0.4;
+const SOPRA_IL_CORPO_M = 10;
+const RAGGIO_GRUPPO_M = 12;
+
+function areaDi(vol) {
+  return Number.isFinite(vol.areaM2) ? vol.areaM2 : Infinity;
+}
+
+function distanza(a, b) {
+  if (!Number.isFinite(a?._e) || !Number.isFinite(b?._e)) return Infinity;
+  return Math.hypot(a._e - b._e, a._n - b._n);
+}
+
+function accettabile(vol, areaEdificio) {
+  if (!Number.isFinite(vol.areaM2)) return true;
+  return vol.areaM2 <= Math.max(120, areaEdificio * 1.15);
+}
+
+function ePiantaTorre(vol, areaEdificio) {
+  const area = areaDi(vol);
+  if (!vol.anello || vol.anello.length < 4) return false;
+  if (!(vol.h >= 16) || area > AREA_TORRE_M2) return false;
+  return area <= Math.max(80, FRAZIONE_IMPRONTA * (areaEdificio || area));
+}
+
+/**
+ * @param {Array<{h:number, areaM2?:number, anello?:number[][], _e?:number, _n?:number}>} volumi
+ * @param {number} areaEdificio
+ */
+export function separaTorre(volumi, areaEdificio) {
+  const validi = (volumi ?? []).filter((v) => Number.isFinite(v.h) && v.h > 0.5 && v.h <= 80 && accettabile(v, areaEdificio));
+  if (!validi.length) return { corpo: null, torri: [] };
+  const perAltezza = (a, b) => b.h - a.h;
+  const sostanziosi = validi.filter((v) => areaDi(v) >= 80);
+  const punta = validi.filter((v) => ePiantaTorre(v, areaEdificio)).sort(perAltezza)[0];
+  const corpoDiBase = (sostanziosi.length ? sostanziosi : validi).slice().sort(perAltezza)[0];
+  if (!punta) return { corpo: corpoDiBase, torri: [] };
+
+  const gruppo = validi.filter((v) => v === punta || (
+    ePiantaTorre(v, areaEdificio)
+    && distanza(v, punta) <= RAGGIO_GRUPPO_M
+    && v.h >= punta.h - 20
+    && areaDi(v) <= Math.max(areaDi(punta) * 1.8, 120)
+  ));
+  const fuori = validi.filter((v) => !gruppo.includes(v) && areaDi(v) >= 80);
+  const corpo = fuori.sort(perAltezza)[0] ?? null;
+  if (!corpo || punta.h < corpo.h + SOPRA_IL_CORPO_M) {
+    return { corpo: corpoDiBase, torri: [] };
+  }
+  return { corpo, torri: gruppo.sort(perAltezza) };
+}

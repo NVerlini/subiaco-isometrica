@@ -23,7 +23,7 @@ L'obbligo MIT, finché non si copia un file, è il credito già in [ATTRIBUTION.
 | Finestra di pittura | 1024 px, overlap 128, passo 896, sfumatura 64 | `paint.ts` |
 | Formato pubblicato | AVIF | export |
 
-L'heading di 45° della regione Roma è un'altra cosa: è l'azimut verso cui guarda la camera, scelto in diagonale rispetto all'isolato. Per Subiaco è solo una proposta, non un valore congelato. Vedi sotto.
+L'heading di 45° della regione Roma è l'azimut verso cui guarda la camera. Per Subiaco è congelato a 315° in FASE 2: stessa diagonale, specchiata, così l'Aniene sta a sinistra. Vedi `docs/fase2-render.md`.
 
 ## FASE 0 — fatto
 
@@ -45,7 +45,7 @@ Portato, adattando i file e tenendo la nota di copyright dove il sorgente è rip
 - DEM Copernicus in `data/raw/dem/`. Tile unico `N41 E013`, misurato.
 - WorldCover 2021 in `data/raw/worldcover/`.
 - Suolo e scena in `data/derived/<area>/`, con anteprima PNG e GLB.
-- Una regione sola, `subiaco`, origine sulla Rocca Abbaziale (41,92609 N, 13,09482 E). L'heading non è ancora congelato: il primo render di FASE 2 lo fissa.
+- Una regione sola, `subiaco`, origine sulla Rocca Abbaziale (41,92609 N, 13,09482 E). L'heading è congelato a 315° dal render della FASE 2.
 
 Da non portare: layer ArcGIS di Tel Aviv, LoD2/DGM1 della LGL, estratti Geofabrik di Stoccarda, bus ATAC.
 
@@ -56,13 +56,18 @@ Misure chiuse il 17 novembre 2026, scritte in `config/pipeline.json`:
 - `heightBase` 420 m ellissoidici. Il dislivello ortometrico misurato è 1380 m (fondovalle 365 m, cresta di Monte Livata 1745 m) e non entra nei 655 m del riferimento. La codifica si allarga a 3 cm per unità a 16 bit (`codificaAltezze`), una sola regione.
 - Altezze: unità volumetriche CTR (campo `UN_VOL_AV`) dove il volume cade nell'edificio; altrimenti `building:levels`, altrimenti il default di `config/altezze.json`.
 - Alberi: ESA WorldCover (classi 10 e 20) più i node OSM.
-- Heading ancora provvisorio a 45°.
+- Heading congelato a 315° (FASE 2).
 
 ## FASE 2 — render isometrico
 
-Da portare: la matematica della camera in `pipeline/src/camera.ts` (ECEF → ENU → pixel d'arte, camera ortografica per tile) e la pagina Three.js in `pipeline/page/`, lanciata con Chromium via `playwright-core`. Output previsto: `data/derived/<area>/render/<tx>_<ty>.png` (1024²) e `height/<tx>_<ty>.png` (256²).
+Portato, adattando i file e tenendo la nota di copyright (vedi `ATTRIBUTION.md` e `docs/fase2-render.md`):
 
-Il primo test resta il bbox `centro-storico`. `centro-monasteri` e `monte-livata` sono aree della stessa regione, non altre camere.
+- `cameraTile` in `pipeline/src/geo.mjs`, dalla matematica di `camera.ts` (ECEF → ENU → pixel d'arte, camera ortografica per tile).
+- Pagina Three.js in `pipeline/page/renderer.js`, lanciata con Chromium via `playwright-core`.
+- Output: `data/derived/<area>/render/<tx>_<ty>.png` (1024²) e `height/<tx>_<ty>.png` (256², passo 3 cm).
+- Piramide non dipinta in `data/web/regions/subiaco/tiles/photo/{z}/{x}/{y}.avif`, zoom 8 → 2, tile 512.
+
+Il primo test è la finestra Rocca–Ponte San Francesco, poi il bbox `centro-storico`. `centro-monasteri` e `monte-livata` restano aree della stessa regione, non altre camere. L'heading non si cambia più.
 
 ## FASE 3 — pittura
 
@@ -98,7 +103,7 @@ Non creare ancora `vercel.json` né `wrangler.jsonc`: senza sito e senza bucket 
 
 ## Cosa resta volutamente fuori
 
-- Implementazione di camera nel renderer, render, paint, viewer, export, publish, deploy. Fetch, ground e scene sono la FASE 1.
+- Pittura, viewer, publish, deploy. Fetch, ground, scene, render ed export delle tile non dipinte sono fatti per il centro storico.
 - Immagini di stile e prompt di pittura.
 - Workspace npm `pipeline/` + `web/`: ha senso quando quei pacchetti hanno dipendenze (Three.js, sharp, Astro). Oggi c'è un solo `package.json`.
-- La conferma dell'heading. `geoidM`, `groundH` e `heightBase` sono fissati in FASE 1.
+- `geoidM`, `groundH`, `heightBase` e l'heading (315°) sono fissati.
