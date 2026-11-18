@@ -1,0 +1,56 @@
+{
+  "stile": "illustrazione isometrica pittorica calda, alla maniera di Mondo Isometrico",
+  "prompt": "Dipingi questa vista isometrica di Subiaco come un'illustrazione pittorica calda. Mantieni esattamente la geometria del render: non spostare edifici, strade, il ponte o l'Aniene, non aggiungere isolati. Tetti in coppi, muri in pietra calcarea chiara, strade in terra battuta e pietra, l'Aniene verde-azzurro, bosco mediterraneo più scuro. Dove la maschera indica la faggeta, chiome di faggio più chiare e giallo-verdi. Luce di pomeriggio, ombre morbide, niente testo, niente persone, niente veicoli.",
+  "vincoli": "La prima immagine è il render da rispettare. La seconda è la maschera delle classi (edificio, strada, acqua, bosco, faggeta, arbusti, ponte, suolo). La terza è il pass altezze: più chiaro è più alto. La codifica originale delle altezze è a 3 cm per unità su 16 bit, non a 1 cm. Non inventare geometria nel cielo.",
+  "palette": {
+    "coppi": [176, 78, 48],
+    "coppiOmbra": [132, 54, 34],
+    "calcare": [214, 196, 168],
+    "ombraCalcare": [158, 140, 118],
+    "strada": [146, 124, 96],
+    "aniene": [64, 148, 156],
+    "anieneProfondo": [32, 96, 112],
+    "bosco": [42, 86, 46],
+    "faggeta": [138, 168, 78],
+    "arbusti": [118, 138, 68],
+    "ponte": [176, 166, 150],
+    "suolo": [172, 156, 118],
+    "cielo": [196, 206, 214]
+  },
+  "classi": {
+    "0": "cielo",
+    "1": "suolo",
+    "2": "edificio",
+    "3": "strada",
+    "4": "acqua",
+    "5": "bosco",
+    "6": "faggeta",
+    "7": "arbusti",
+    "8": "ponte"
+  },
+  "faggeta": {
+    "sogliaQuotaM": 1000,
+    "fonti": ["ESA WorldCover classe 10 (alberi)", "OSM leaf_type=broadleaved"],
+    "esclusi": ["leaf_type=needleleaved", "leaf_type=mixed", "WorldCover classe 20 sotto la soglia resta arbusto"],
+    "nota": "Sopra circa 1000 m ortometrici la chioma latifoglia, o il bosco WorldCover se OSM non indica aghi, è faggeta: è la classe pronta per Monte Livata. Sotto quella quota, anche le latifoglie restano bosco. Il centro storico è tutto sotto la soglia."
+  },
+  "daVerificare": {
+    "edificiSenzaAltezzaMisurata": 68,
+    "nota": "Nel centro storico, al render del 17 novembre 2026, 68 edifici restano al default di tipologia: la CTR non ha un volume nella loro impronta. Non bloccano la pittura. Se la scena viene rigenerata il conteggio vivo sta in scene/report.json.",
+    "split": [
+      {
+        "osm": "way/1047734686",
+        "nota": "Volume stretto staccato dal corpo. Verificare a occhio: il corpo basso potrebbe essere un annesso e non la navata."
+      },
+      {
+        "osm": "way/1180637482",
+        "nota": "Stesso caso. Non è stato corretto in automatico."
+      }
+    ]
+  },
+  "ponte": {
+    "osm": "way/232122864",
+    "modello": "arco singolo circolare sulle due spalle della spezzata OSM. Il piano non segue il fondovalle. Spessore e luce non sono misure, sono la geometria per il render.",
+    "frecciaMaxM": 9
+  }
+}

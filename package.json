@@ -2,7 +2,7 @@
   "name": "subiaco-isometrica",
   "version": "0.1.0",
   "private": true,
-    "description": "Mappa isometrica interattiva di Subiaco (RM) e Monte Livata. FASE 2: render isometrico a tile.",
+    "description": "Mappa isometrica interattiva di Subiaco (RM) e Monte Livata. FASE 3: pittura del centro storico.",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -18,7 +18,7 @@
     "dev": "node scripts/fase.mjs dev",
     "publish": "node scripts/fase.mjs publish",
     "deploy": "node scripts/fase.mjs deploy",
-    "test": "node --test pipeline/src/fase1.test.mjs pipeline/src/fase2.test.mjs"
+    "test": "node --test pipeline/src/fase1.test.mjs pipeline/src/fase2.test.mjs pipeline/src/fase3.test.mjs"
   },
   "dependencies": {
     "earcut": "^3.0.2",

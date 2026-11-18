@@ -45,7 +45,7 @@
   },
   "ponteSpessoreM": 1.2,
   "ponteLarghezzaM": 4.5,
-  "notaPonte": "Il Ponte San Francesco in OSM è una spezzata (highway=footway, bridge=yes), non un volume. Spessore e larghezza del piano sono convenzionali, solo per renderlo visibile. La pianta è la geometria OSM, non è inventata.",
+  "notaPonte": "Il Ponte San Francesco (way/232122864) resta la spezzata OSM. In render è un arco singolo: il piano poggia sulle due spalle e non scende nel fondovalle, l'intradosso è un arco circolare e sotto non c'è mesh. Spessore, larghezza e freccia (al massimo 9 m) non sono misure. Gli altri ponti restano un nastro.",
   "alberoDefaultM": 8,
   "chiomaForestaM": 12,
   "arbustoM": 3,

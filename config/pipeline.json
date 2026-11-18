@@ -21,9 +21,9 @@
     "sovrapposizione": 128,
     "passo": 896,
     "sfumatura": 64,
-    "strumento": "Codex CLI, senza chiave API nel repository",
-    "ingressi": ["render della finestra", "pass altezze allineato", "pipeline/style/reference.png", "pipeline/style/alberi.png"],
-    "nota": "Le immagini di stile non sono nel repo: si scelgono in FASE 3. Se si riusa un file dei riferimenti, resta coperto da MIT e va citato in ATTRIBUTION.md."
+    "strumento": "Provider immagini in .env (PAINT_PROVIDER, PAINT_API_KEY). Senza chiave: mock deterministico. Stile e prompt in config/paint.json.",
+    "ingressi": ["render della finestra", "pass altezze a 3 cm", "maschera classi (edificio, strada, acqua, bosco, faggeta)"],
+    "nota": "Le finestre scorrono sulle tile di render con passo 896. La sfumatura di 64 px fonde la sovrapposizione. npm run paint rigenera la piramide AVIF dalle tile dipinte; npm run export senza --dipinte resta sulle tile di geometria."
   },
   "regione": {
     "id": "subiaco",

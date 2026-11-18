@@ -10,6 +10,7 @@
  */
 import * as THREE from "three";
 import { STILE, cameraRettangolo, cameraTile, creaQuadro } from "../src/geo.mjs";
+import { solidiPonte } from "../src/ponte.mjs";
 
 const params = new URLSearchParams(location.search);
 const SS = Math.max(1, Math.min(3, Number(params.get("ss") || 1)));
@@ -364,6 +365,18 @@ function costruisciOggetti(box) {
   }
   for (const ponte of sceneDoc.ponti ?? []) {
     const linea = proiettaAnello(ponte.linea);
+    if (ponte.landmark === "ponte-san-francesco" && linea.length >= 2) {
+      const quote = linea.map(([e, n]) => ground(e, n));
+      if (quote.every((q) => q != null) && linea.some(([e, n]) => nelBox(e, n, box))) {
+        const solido = solidiPonte(linea, quote, {
+          larghezzaM: ponte.larghezzaM ?? 4.5,
+          spessoreM: ponte.spessoreM ?? 1.2,
+          frecciaMaxM: 9,
+        });
+        for (const faccia of solido.facce) quad(pos, col, faccia.verts, faccia.colore);
+        continue;
+      }
+    }
     const mezzo = (ponte.larghezzaM ?? 4.5) / 2;
     for (let i = 1; i < linea.length; i++) {
       const [ax, ay] = linea[i - 1];
@@ -394,7 +407,7 @@ function costruisciOggetti(box) {
     const e = Number.isFinite(albero.e) ? albero.e : albero.lon != null ? quadro.piano(albero.lon, albero.lat)[0] : null;
     const n = Number.isFinite(albero.n) ? albero.n : albero.lon != null ? quadro.piano(albero.lon, albero.lat)[1] : null;
     if (e == null || !nelBox(e, n, box)) continue;
-    alberi.push([e, n, albero.altezzaM, albero.raggioM ?? 2.4, albero.fonte]);
+    alberi.push([e, n, albero.altezzaM, albero.raggioM ?? 2.4, albero.classeVegetazione || albero.fonte]);
   }
   const passo = alberi.length > 7000 ? 2 : 1;
   const scelti = passo === 1 ? alberi : alberi.filter((_, i) => i % passo === 0);
@@ -420,12 +433,16 @@ function costruisciOggetti(box) {
         tronchi.setMatrixAt(i, m);
         return;
       }
-      const alto = fonte === "worldcover-arbusti" ? 0.55 : 1;
+      const alto = fonte === "arbusti" || fonte === "worldcover-arbusti" ? 0.55 : 1;
       m.compose(new THREE.Vector3(e, n, g + h * 0.42), q, new THREE.Vector3(r * alto, r * alto, h * 0.72));
       chiome.setMatrixAt(i, m);
       m.compose(new THREE.Vector3(e, n, g), q, new THREE.Vector3(r * 0.12, r * 0.12, h * 0.45));
       tronchi.setMatrixAt(i, m);
-      const verde = fonte === "worldcover-arbusti" ? [0.42, 0.55, 0.24] : [0.16, 0.38, 0.2];
+      const verde = fonte === "faggeta"
+        ? [0.62, 0.74, 0.38]
+        : fonte === "arbusti" || fonte === "worldcover-arbusti"
+          ? [0.42, 0.55, 0.24]
+          : [0.16, 0.38, 0.2];
       chiome.setColorAt(i, colore.setRGB(verde[0], verde[1], verde[2]));
     });
     chiome.instanceColor.needsUpdate = true;

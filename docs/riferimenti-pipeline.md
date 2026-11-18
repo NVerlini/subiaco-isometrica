@@ -71,9 +71,11 @@ Il primo test è la finestra Rocca–Ponte San Francesco, poi il bbox `centro-st
 
 ## FASE 3 — pittura
 
-Il riferimento non dipinge con una chiave API. Usa la Codex CLI (`codex exec`) sull'account locale, a finestre da 1024 px con 128 px di sovrapposizione, poi fonde con una sfumatura di 64 px. Ogni finestra riceve il render, il pass altezze, `pipeline/style/reference.png` e il foglio degli alberi. I vicini già dipinti entrano nella striscia di overlap. La geometria non si inventa: il risultato viene confrontato con il render.
+Il riferimento non dipinge con una chiave API nel repository: usa la Codex CLI (`codex exec`) sull'account locale, a finestre da 1024 px con 128 px di sovrapposizione, poi fonde con una sfumatura di 64 px. Ogni finestra riceve il render e il pass altezze. I vicini già dipinti entrano nella striscia di overlap. La geometria non si inventa.
 
-La cartella `pipeline/style/` è vuota di proposito. Lo stile (Roma Isometrica o Tel Aviv) si sceglie in questa fase. I PNG dei riferimenti pesano diversi megabyte e non vanno copiati prima di quella scelta. Per il clima di Subiaco e per la neve a Monte Livata servirà quasi certamente un foglio alberi proprio, e una variante invernale: il riferimento lo prevede per un clima diverso da Tel Aviv.
+Qui i numeri sono gli stessi (`config/pipeline.json`, `pipeline/src/finestre.mjs`). Il pass altezze si legge a 3 cm, non al centimetro del riferimento. In più c'è la maschera delle classi, compresa la faggeta sopra i 1000 m. Lo stile è il prompt in `config/paint.json`: non sono stati copiati `reference.png` né il foglio alberi, che pesano diversi megabyte. Il provider è configurabile da `.env`. Senza `PAINT_API_KEY` un mock deterministico fa girare finestre, fusione e piramide senza rete. Il dettaglio è in `docs/fase3-painting.md`.
+
+`pipeline/style/` resta vuoto. Una variante invernale per Monte Livata, come nel riferimento per un clima diverso da Tel Aviv, non è in questa fase: c'è solo la classe di faggeta.
 
 ## FASE 4 — viewer
 
@@ -103,7 +105,7 @@ Non creare ancora `vercel.json` né `wrangler.jsonc`: senza sito e senza bucket 
 
 ## Cosa resta volutamente fuori
 
-- Pittura, viewer, publish, deploy. Fetch, ground, scene, render ed export delle tile non dipinte sono fatti per il centro storico.
-- Immagini di stile e prompt di pittura.
-- Workspace npm `pipeline/` + `web/`: ha senso quando quei pacchetti hanno dipendenze (Three.js, sharp, Astro). Oggi c'è un solo `package.json`.
+- Viewer, publish, deploy. Fetch, ground, scene, render, pittura ed export sono fatti per il centro storico. La pittura, senza chiave, non chiama un'API.
+- I PNG di stile dei riferimenti. Il prompt sta in `config/paint.json`.
+- Workspace npm `pipeline/` + `web/`: ha senso quando quei pacchetti hanno dipendenze (Astro). Oggi c'è un solo `package.json`. Three.js e sharp sono già dipendenze del render.
 - `geoidM`, `groundH`, `heightBase` e l'heading (315°) sono fissati.
