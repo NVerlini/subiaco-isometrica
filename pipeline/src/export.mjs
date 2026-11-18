@@ -20,7 +20,6 @@ import {
   caricaEnv,
   leggiAree,
   leggiPipeline,
-  opzioni,
   richiediNode24,
 } from "./config.mjs";
 import { STILE, assi } from "./geo.mjs";
@@ -33,9 +32,17 @@ const SPLIT = STILE.tile / TS;
 const FORMATO = "avif";
 const CIELO = { r: 0xb7, g: 0xc9, b: 0xd6 };
 
-function elencoRender(areaId) {
-  const dir = path.join(DERIVED, areaId, "render");
-  if (!existsSync(dir)) throw new ErrorePrevisto(`Manca ${dir}. Esegui prima npm run render.`);
+export function cartellaSorgente(areaId, dipinte = false) {
+  return path.join(DERIVED, areaId, dipinte ? "paint" : "render");
+}
+
+function elencoRender(areaId, dipinte = false) {
+  const dir = cartellaSorgente(areaId, dipinte);
+  if (!existsSync(dir)) {
+    throw new ErrorePrevisto(dipinte
+      ? `Manca ${dir}. Esegui prima npm run paint.`
+      : `Manca ${dir}. Esegui prima npm run render.`);
+  }
   const tiles = [];
   for (const nome of readdirSync(dir)) {
     const m = nome.match(/^(-?\d+)_(-?\d+)\.png$/);
@@ -56,8 +63,9 @@ async function scriviAvif(img, file) {
   return hashBuf(buf);
 }
 
-export async function esportaArea(area, pipeline) {
-  const tiles = elencoRender(area.id);
+export async function esportaArea(area, pipeline, opt = {}) {
+  const dipinte = Boolean(opt.dipinte);
+  const tiles = elencoRender(area.id, dipinte);
   const out = path.join(DATA, "web", "regions", pipeline.regione.id);
   const photo = path.join(out, "tiles", "photo");
   rmSync(photo, { recursive: true, force: true });
@@ -67,7 +75,7 @@ export async function esportaArea(area, pipeline) {
   let x1 = -Infinity;
   let y1 = -Infinity;
   const nativi = new Set();
-  console.log(`export ${area.id}: ${tiles.length} tile di render → piramide ${ZMAX}→${ZMIN}`);
+  console.log(`export ${area.id}: ${tiles.length} tile ${dipinte ? "dipinte" : "di render"} → piramide ${ZMAX}→${ZMIN}`);
   const t0 = Date.now();
 
   for (const [tx, ty] of tiles) {
@@ -75,7 +83,7 @@ export async function esportaArea(area, pipeline) {
     y0 = Math.min(y0, ty * STILE.tile);
     x1 = Math.max(x1, (tx + 1) * STILE.tile);
     y1 = Math.max(y1, (ty + 1) * STILE.tile);
-    const sorgente = path.join(DERIVED, area.id, "render", `${tx}_${ty}.png`);
+    const sorgente = path.join(cartellaSorgente(area.id, dipinte), `${tx}_${ty}.png`);
     for (let j = 0; j < SPLIT; j++) {
       for (let i = 0; i < SPLIT; i++) {
         const x = tx * SPLIT + i;
@@ -154,14 +162,16 @@ export async function esportaArea(area, pipeline) {
     },
     format: FORMATO,
     layers: { photo: nativi.size },
-    dipinte: false,
+    dipinte,
     attributions: [
       "© contributori OpenStreetMap, ODbL",
       "© Regione Lazio, DBGT, CC BY 4.0",
       "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium",
       "Copernicus DEM GLO-30 © DLR e Airbus, programma Copernicus dell'Unione Europea",
     ],
-    nota: "Piramide delle tile non dipinte. Il viewer (FASE 4) somma origin/span all'indice di OpenSeadragon.",
+    nota: dipinte
+      ? "Piramide delle tile dipinte. Il viewer (FASE 4) somma origin/span all'indice di OpenSeadragon."
+      : "Piramide delle tile non dipinte. Il viewer (FASE 4) somma origin/span all'indice di OpenSeadragon.",
   };
   const dataDir = path.join(out, "data");
   mkdirSync(dataDir, { recursive: true });
@@ -188,13 +198,25 @@ export async function esegui(argv) {
   caricaEnv();
   const aree = leggiAree();
   const pipeline = leggiPipeline();
-  const opt = opzioni(argv, aree.aree);
+  const opt = { dipinte: false, all: false, ids: [], help: false };
+  for (const arg of argv) {
+    if (arg === "--help" || arg === "-h") opt.help = true;
+    else if (arg === "--dipinte") opt.dipinte = true;
+    else if (arg === "--all") opt.all = true;
+    else if (arg.startsWith("-")) throw new ErrorePrevisto(`Opzione sconosciuta: ${arg}`);
+    else opt.ids.push(arg);
+  }
   if (opt.help) {
-    console.log("Uso: npm run export [-- centro-storico]\nScrive la piramide AVIF in data/web/regions/subiaco/. Non pubblica.");
+    console.log("Uso: npm run export [-- centro-storico] [--dipinte]\nScrive la piramide AVIF in data/web/regions/subiaco/. --dipinte legge le tile in paint/. Non pubblica.");
     return;
   }
+  const ids = opt.all ? aree.aree.map((a) => a.id) : opt.ids;
+  if (!ids.length) ids.push(process.env.OSM_AREA?.trim() || "centro-storico");
+  for (const id of ids) {
+    if (!aree.aree.some((a) => a.id === id)) throw new ErrorePrevisto(`Area sconosciuta: ${id}.`);
+  }
   console.log("Subiaco Isometrica — export");
-  for (const id of opt.ids) await esportaArea(areaPerId(aree, id), pipeline);
+  for (const id of ids) await esportaArea(areaPerId(aree, id), pipeline, opt);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

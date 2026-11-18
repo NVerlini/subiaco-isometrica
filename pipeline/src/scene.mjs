@@ -28,6 +28,8 @@ import {
 } from "./altezze.mjs";
 import { areaM2, bboxInterseca, centroide, creaQuadro, distanzaAnello, nelPoligono } from "./geo.mjs";
 import { separaTorre } from "./torri.mjs";
+import { solidiPonte } from "./ponte.mjs";
+import { classeVegetazione, avvisiGeometria, testoAvvisi } from "./vegetazione.mjs";
 import { meshVuoto, scriviGlb } from "./glb.mjs";
 import { ErrorePrevisto } from "./overpass.mjs";
 import { edificiDi, eEdificio, idOsm, lineaDi, puntoDi } from "./osm.mjs";
@@ -239,7 +241,9 @@ function scenaArea(area, config, pipeline, altezze) {
         ponti.push({
           ...voce,
           spessoreM: altezze.ponteSpessoreM,
-          nota: voce.landmark ? altezze.notaPonte : null,
+          nota: voce.landmark === "ponte-san-francesco"
+            ? "Arco singolo sulle spalle della spezzata OSM. Il piano non segue il fondovalle. Spessore e freccia non sono misure."
+            : voce.landmark ? altezze.notaPonte : null,
         });
       }
     }
@@ -283,13 +287,45 @@ function scenaArea(area, config, pipeline, altezze) {
       const suoloM = dtm(e, n);
       if (suoloM == null) continue;
       const hTag = Number(tags.height);
+      const suoloArrot = Math.round(suoloM * 10) / 10;
       alberi.push({
         lon: punto[0],
         lat: punto[1],
         altezzaM: Number.isFinite(hTag) && hTag > 0 ? hTag : altezze.alberoDefaultM,
         fonte: Number.isFinite(hTag) && hTag > 0 ? "osm" : "default",
+        leafType: tags.leaf_type ?? null,
+        classeVegetazione: classeVegetazione({
+          worldcover: 0,
+          leafType: tags.leaf_type,
+          quotaOrtometrica: suoloArrot,
+        }),
         raggioM: 2.2,
-        suoloM: Math.round(suoloM * 10) / 10,
+        suoloM: suoloArrot,
+      });
+    }
+  }
+
+  const boschi = [];
+  for (const el of osm.elements ?? []) {
+    const tags = el.tags ?? {};
+    if (tags.natural !== "wood" && tags.landuse !== "forest") continue;
+    if (el.type !== "way" && el.type !== "relation") continue;
+    for (const item of edificiDi(el)) {
+      if (!item.anello || item.anello.length < 4) continue;
+      const c = centroide(item.anello);
+      const [e, n] = quadro.piano(c[0], c[1]);
+      const suoloGrezzo = dtm(e, n);
+      const suoloM = suoloGrezzo == null ? null : Math.round(suoloGrezzo * 10) / 10;
+      boschi.push({
+        id: idOsm(el),
+        leafType: tags.leaf_type ?? null,
+        anello: item.anello,
+        suoloM,
+        classeVegetazione: classeVegetazione({
+          worldcover: 10,
+          leafType: tags.leaf_type,
+          quotaOrtometrica: suoloM,
+        }),
       });
     }
   }
@@ -338,6 +374,7 @@ function scenaArea(area, config, pipeline, altezze) {
       const e = x0 + ix * passoM;
       const nord = y0 + iy * passoM;
       const suoloM = suolo[i];
+      const suoloArrot = Math.round(suoloM * 10) / 10;
       alberi.push({
         lon: null,
         lat: null,
@@ -345,8 +382,14 @@ function scenaArea(area, config, pipeline, altezze) {
         n: nord,
         altezzaM: codice === 10 ? altezze.chiomaForestaM : altezze.arbustoM,
         fonte: codice === 10 ? "worldcover-alberi" : "worldcover-arbusti",
+        leafType: null,
+        classeVegetazione: classeVegetazione({
+          worldcover: codice,
+          leafType: null,
+          quotaOrtometrica: suoloArrot,
+        }),
         raggioM: codice === 10 ? 3.2 : 1.4,
-        suoloM: Math.round(suoloM * 10) / 10,
+        suoloM: suoloArrot,
       });
       forestali++;
     }
@@ -406,6 +449,8 @@ function scenaArea(area, config, pipeline, altezze) {
       strade: strade.length,
       alberiOsm: alberi.filter((a) => a.fonte === "osm" || a.fonte === "default").length,
       alberiWorldcover: forestali,
+      faggeta: alberi.filter((a) => a.classeVegetazione === "faggeta").length + boschi.filter((b) => b.classeVegetazione === "faggeta").length,
+      boschi: boschi.length,
       poi: poi.length,
       piste: piste.length,
       impianti: impianti.length,
@@ -417,6 +462,7 @@ function scenaArea(area, config, pipeline, altezze) {
     piste,
     impianti,
     poi,
+    boschi,
     alberi: alberi.map((a) => ({
       lat: a.lat,
       lon: a.lon,
@@ -425,6 +471,8 @@ function scenaArea(area, config, pipeline, altezze) {
       altezzaM: a.altezzaM,
       raggioM: a.raggioM,
       fonte: a.fonte,
+      leafType: a.leafType ?? null,
+      classeVegetazione: a.classeVegetazione ?? null,
       suoloM: a.suoloM,
     })),
     elementiPrevisti,
@@ -455,6 +503,27 @@ function scenaArea(area, config, pipeline, altezze) {
   }
   for (const ponte of ponti) {
     const pts = ponte.linea.map(([lon, lat]) => quadro.piano(lon, lat));
+    if (ponte.landmark === "ponte-san-francesco" && pts.length >= 2) {
+      const quote = pts.map(([e, n]) => {
+        const q = dtm(e, n);
+        return q == null ? null : quadro.suOrtometrico(e, n, q);
+      });
+      if (quote.every((q) => q != null)) {
+        const solido = solidiPonte(pts, quote, {
+          larghezzaM: ponte.larghezzaM ?? altezze.ponteLarghezzaM,
+          spessoreM: ponte.spessoreM ?? altezze.ponteSpessoreM,
+          frecciaMaxM: 9,
+        });
+        for (const faccia of solido.facce) {
+          mesh.aggiungi(
+            faccia.verts.map(([e, n, z]) => [e, z, -n]),
+            faccia.colore,
+            [0, 1, 2, 0, 2, 3],
+          );
+        }
+        continue;
+      }
+    }
     const mezzo = (ponte.larghezzaM ?? altezze.ponteLarghezzaM) / 2;
     for (let i = 1; i < pts.length; i++) {
       const [ax, ay] = pts[i - 1];
@@ -498,6 +567,7 @@ function scenaArea(area, config, pipeline, altezze) {
     meta, suolo, cover, quadro, regione, edifici, dtm,
   });
 
+  const avvisi = avvisiGeometria({ edifici });
   const report = {
     area: area.id,
     conteggi: documento.conteggi,
@@ -508,9 +578,11 @@ function scenaArea(area, config, pipeline, altezze) {
     elementiPrevisti,
     torri,
     volumi2020: da2020,
+    avvisi,
     output: ["scene.json", "anteprima.png", "anteprima-isometrica.png", "scena.glb"],
   };
   writeFileSync(path.join(out, "report.json"), JSON.stringify(report, null, 2));
+  for (const riga of testoAvvisi(avvisi)) console.log(`  ${riga}`);
   console.log(`  edifici ${edifici.length} (CTR unità ${fonti["ctr-unita"]}, di cui DBGT 2020 ${da2020}, gronda ${fonti["ctr-gronda"]}, livelli ${fonti["building:levels"]}, default ${fonti["default-tipologia"]})`);
   console.log(`  torri staccate dal corpo: ${torri.length}`);
   for (const torre of torri) console.log(`    ${torre.nome ?? torre.id}: corpo ${torre.corpoM} m, torre ${torre.altezzaM} m`);

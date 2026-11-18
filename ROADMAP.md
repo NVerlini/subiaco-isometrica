@@ -39,10 +39,13 @@ Esito (17 novembre 2026, dettaglio in `docs/fase1-geometria.md`): `npm run fetch
 Esito (17 novembre 2026, dettaglio in `docs/fase2-render.md`): heading congelato a **315°** (l'Aniene a sinistra e in primo piano, Rocca al centro, borgo verso destra). `npm run render` scrive 33 tile da 1024 px del centro storico, il pass altezze a 3 cm e un mosaico. La finestra Rocca–Ponte San Francesco è `--finestra rocca-ponte` (14 tile, 8,9 s). `npm run export` costruisce la piramide AVIF zoom 8→2 (132 tile da 512 px allo zoom nativo) in `data/web/regions/subiaco/`. Sant'Andrea è corpo 25,4 m più campanile 56,3 m e 42,4 m. Gli edifici senza volume DBGT scendono da 96 a 68. La carreggiata torna all'erosione del DSM (media −10,5 m sulle celle toccate). Le tile non sono nel repository.
 
 ## FASE 3 – Painting AI
-- [ ] Style reference (Roma Isometrica / Tel Aviv)
-- [ ] Painting progressivo partendo da finestre di test
-- [ ] Gestione seam e consistenza
-- [ ] Priorità: centro storico, monasteri, Aniene; poi Monte Livata (variante invernale con neve)
+- [x] Stile in config (illustrazione calda, coppi, calcare, Aniene), senza copiare i PNG di Roma
+- [x] Finestre 1024 px, overlap 128, fusione a 64 px, piramide dalle tile dipinte
+- [x] Provider mock se manca la chiave; OpenAI Images se `PAINT_API_KEY` è nel `.env`
+- [x] Classe faggeta (WorldCover / `leaf_type=broadleaved`, quota > 1000 m) pronta per Livata
+- [ ] Pittura delle 33 tile del centro con un provider reale, poi monasteri e variante invernale di Monte Livata
+
+Esito (18 novembre 2026, dettaglio in `docs/fase3-painting.md`): `npm run paint` legge il render e il pass a 3 cm, costruisce le maschere (edificio, strada, acqua, bosco, faggeta) e fonde le finestre. Senza chiave non c'è rete. Le anteprime in `docs/` sono il mock su una finestra di prova. Il Ponte San Francesco (way/232122864) è un arco singolo nella mesh: le tile già renderizzate non sono state ridisegnate. Restano segnalati, senza bloccare, i 68 edifici senza quota misurata e gli split way/1047734686 e way/1180637482.
 
 ## FASE 4 – Interattività e feature live
 - [ ] Viewer web (zoom, pan, share view)
