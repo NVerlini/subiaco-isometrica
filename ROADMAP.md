@@ -9,7 +9,7 @@ Fonti dati: OpenStreetMap, Carta Tecnica Regione Lazio, ESA WorldCover, Copernic
 - [x] Roadmap definita
 - [x] Analisi copertura OSM e bounding box (docs/fase0-dati-osm.md)
 - [x] Profilo GitHub personale creato
-- [x] Via all'implementazione (FASE 0 e FASE 1 pronte; FASE 2 render del centro storico, pittura ancora da fare)
+- [x] Via all'implementazione (FASE 0–3 pronte; FASE 4 viewer web, publish ancora da fare)
 
 ## FASE 0 – Setup e preparazione
 - [x] Creare repo personale (`isometric-subiaco` o `mondoisometrico-subiaco`), fork o base su dg996/mondoisometrico o krasun/isometricworld
@@ -48,11 +48,13 @@ Esito (17 novembre 2026, dettaglio in `docs/fase2-render.md`): heading congelato
 Esito (18 novembre 2026, dettaglio in `docs/fase3-painting.md`): `npm run paint` legge il render e il pass a 3 cm, costruisce le maschere (edificio, strada, acqua, bosco, faggeta) e fonde le finestre. Senza chiave non c'è rete. Le anteprime in `docs/` sono il mock su una finestra di prova. Il Ponte San Francesco (way/232122864) è un arco singolo nella mesh: le tile già renderizzate non sono state ridisegnate. Restano segnalati, senza bloccare, i 68 edifici senza quota misurata e gli split way/1047734686 e way/1180637482.
 
 ## FASE 4 – Interattività e feature live
-- [ ] Viewer web (zoom, pan, share view)
-- [ ] Meteo real-time (Open-Meteo)
-- [ ] Illuminazione giorno/notte
+- [x] Viewer web (zoom, pan, share view)
+- [x] Meteo real-time (Open-Meteo)
+- [x] Illuminazione giorno/notte
 - [ ] (Opzionale) traffico semplificato o animazioni leggere
-- [ ] Bottone segnalazione bug/idee verso GitHub issues
+- [x] Bottone segnalazione bug/idee verso GitHub issues
+
+Esito (22 novembre 2026, dettaglio in `docs/fase4-viewer.md`): `npm run dev` apre una pagina statica. Legge la piramide AVIF in `data/web` (dipinta se `world.json` lo dice, altrimenti il render) e, se non c'è, genera uno schema di circa 60 KB. I sei luoghi di `config/areas.json` sono pin con scheda in italiano; il pixel usa la stessa proiezione ENU della FASE 2, heading 315°, alla quota del suolo. Open-Meteo, senza chiave, copre Subiaco e Monte Livata; il filtro notte segue alba e tramonto. «Segnala un errore» apre un'issue GitHub già compilata, senza token. I crediti stanno nel piè di pagina. Il traffico non c'è. Le tile non sono nel repository.
 
 ## FASE 5 – Pubblicazione e manutenzione
 - [ ] Hosting Vercel + Cloudflare R2

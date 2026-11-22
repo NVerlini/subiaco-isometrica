@@ -6,6 +6,7 @@
  * Il contratto (camera, zoom, cache) è in config/pipeline.json.
  * fetch, ground e scene sono la FASE 1. render ed export sono la FASE 2.
  * paint è la FASE 3. export --dipinte ricostruisce la piramide dalle tile dipinte.
+ * dev è la FASE 4: viewer statico, con schema leggero se la piramide non c'è.
  */
 
 const STADI = {
@@ -42,7 +43,7 @@ const STADI = {
   dev: {
     fase: 4,
     titolo: "Viewer di sviluppo",
-    dettaglio: "Viewer Astro e OpenSeadragon, da scrivere in web/. Le dipendenze non sono ancora installate.",
+    dettaglio: "Viewer statico in web/. Serve la piramide AVIF in data/web se c'è, altrimenti uno schema leggero.",
   },
   publish: {
     fase: 5,
@@ -67,6 +68,9 @@ if (!stadio) {
 if (nome === "fetch" || nome === "ground" || nome === "scene" || nome === "render" || nome === "paint" || nome === "export") {
   const modulo = await import(`../pipeline/src/${nome}.mjs`);
   await modulo.esegui(process.argv.slice(3));
+} else if (nome === "dev") {
+  const modulo = await import("../web/src/server.mjs");
+  await modulo.avvia(process.argv.slice(3));
 } else {
   console.log(`${nome} — FASE ${stadio.fase}, non ancora implementata.`);
   console.log(stadio.titolo + ".");

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subiaco Isometrica</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect fill='%231b2d24' width='16' height='16'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%238c3b2c'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/stile.css">
+</head>
+<body>
+  <header>
+    <div>
+      <p class="occhiello">Subiaco e Monte Livata</p>
+      <h1>Subiaco Isometrica</h1>
+    </div>
+    <div class="comandi">
+      <p id="fonte" class="fonte">Caricamento</p>
+      <a id="segnala" class="pannello" href="https://github.com/NVerlini/subiaco-isometrica/issues/new" target="_blank" rel="noopener noreferrer">Segnala un errore</a>
+    </div>
+  </header>
+
+  <main id="vista">
+    <p id="stato">Caricamento della mappa…</p>
+    <div id="tessere"></div>
+    <div id="velo" aria-hidden="true"></div>
+    <div id="pin"></div>
+  </main>
+
+  <nav id="luoghi" class="pannello" aria-label="Luoghi"></nav>
+
+  <section id="meteo" class="pannello" aria-label="Meteo">
+    <p>Meteo in caricamento…</p>
+  </section>
+  <p id="fase" class="pannello fase" hidden></p>
+
+  <article id="scheda" class="pannello" hidden>
+    <h2></h2>
+    <p></p>
+    <p class="meta"></p>
+    <div class="azioni">
+      <a href="" hidden>Scheda OpenStreetMap</a>
+      <button type="button" id="chiudi">Chiudi</button>
+    </div>
+  </article>
+
+  <footer>
+    <a href="https://www.openstreetmap.org/copyright">© contributori OpenStreetMap</a>
+    <span>·</span>
+    <a href="https://geoportale.regione.lazio.it/">Regione Lazio</a>
+    <span>·</span>
+    <span>Copernicus DEM</span>
+    <span>·</span>
+    <a href="https://esa-worldcover.org/">ESA WorldCover</a>
+    <span>·</span>
+    <a href="https://github.com/dg996/mondoisometrico">Mondo Isometrico</a>
+    <span>/ @dom_gag_96</span>
+  </footer>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

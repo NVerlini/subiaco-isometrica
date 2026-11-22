@@ -89,10 +89,11 @@
     "nota": "Tutto data/ è gitignorato. data/web/ è solo la cache non ancora pubblicata. Le tile pubblicate stanno su R2, non in web/public."
   },
   "viewer": {
-    "stack": ["Astro", "OpenSeadragon"],
+    "stack": ["pagina statica", "piramide AVIF"],
     "quando": "FASE 4",
-    "cartelle": ["web/src/pages", "web/src/scripts", "web/src/components", "web/public"],
-    "deepLink": "#@x,y,zoom"
+    "cartelle": ["web/src", "web/public"],
+    "deepLink": "#@x,y,zoom",
+    "nota": "Viewer in web/, senza Astro né OpenSeadragon. Stessi numeri della piramide: zoom 2–8, tile 512, overlap 0, maxZoomPixelRatio 2,5, zoomPerScroll 1,35. npm run dev legge data/web se c'è, altrimenti genera uno schema."
   },
   "deploy": {
     "quando": "FASE 5",
