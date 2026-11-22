@@ -31,5 +31,7 @@ Il dettaglio di cosa si prende e in quale fase è in `docs/riferimenti-pipeline.
   Tile `Copernicus_DSM_COG_10_N41_00_E013_00_DEM`, quote ortometriche EGM2008.
   https://spacedata.copernicus.eu/collections/copernicus-digital-elevation-model
 
-Le immagini dipinte con AI, quando ci saranno, saranno derivate da render dei dati sopra indicati.
+Le immagini dipinte con un provider a chiave, quando si userà, saranno derivate da render dei dati sopra indicati.
 Le anteprime PNG, il GLB e le tile della FASE 2 sono geometria, non pittura. Le tile non sono nel repository.
+Le JPEG in `docs/fase3-anteprima.jpg` e `docs/fase3-maschere.jpg` sono lo shading procedurale del provider mock, non un'immagine di un modello e non un ritaglio di Mondo Isometrico.
+La pittura (`pipeline/src/finestre.mjs`, `pipeline/src/paint.mjs`, `pipeline/src/vegetazione.mjs`, `pipeline/src/ponte.mjs`) non copia `paint.ts` dei riferimenti: ne segue i numeri di finestra, sovrapposizione e sfumatura.

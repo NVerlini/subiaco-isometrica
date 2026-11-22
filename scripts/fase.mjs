@@ -5,6 +5,7 @@
  * fetch → ground → scene → render → paint → export → viewer → publish → deploy.
  * Il contratto (camera, zoom, cache) è in config/pipeline.json.
  * fetch, ground e scene sono la FASE 1. render ed export sono la FASE 2.
+ * paint è la FASE 3. export --dipinte ricostruisce la piramide dalle tile dipinte.
  */
 
 const STADI = {
@@ -31,7 +32,7 @@ const STADI = {
   paint: {
     fase: 3,
     titolo: "Pittura",
-    dettaglio: "Finestre da 1024 px con 128 px di sovrapposizione. Le immagini di stile non sono ancora nel repo.",
+    dettaglio: "Finestre da 1024 px con 128 px di sovrapposizione sul render, maschere di classe e pass altezze a 3 cm. Senza PAINT_API_KEY usa il provider mock.",
   },
   export: {
     fase: 2,
@@ -63,7 +64,7 @@ if (!stadio) {
   process.exit(1);
 }
 
-if (nome === "fetch" || nome === "ground" || nome === "scene" || nome === "render" || nome === "export") {
+if (nome === "fetch" || nome === "ground" || nome === "scene" || nome === "render" || nome === "paint" || nome === "export") {
   const modulo = await import(`../pipeline/src/${nome}.mjs`);
   await modulo.esegui(process.argv.slice(3));
 } else {
