@@ -9,7 +9,7 @@ Fonti dati: OpenStreetMap, Carta Tecnica Regione Lazio, ESA WorldCover, Copernic
 - [x] Roadmap definita
 - [x] Analisi copertura OSM e bounding box (docs/fase0-dati-osm.md)
 - [x] Profilo GitHub personale creato
-- [x] Via all'implementazione (FASE 0–3 pronte; FASE 4 viewer web, publish ancora da fare)
+- [x] Via all'implementazione (FASE 0–4 pronte; FASE 5 preparata, deploy da fare sull'account di chi pubblica)
 
 ## FASE 0 – Setup e preparazione
 - [x] Creare repo personale (`isometric-subiaco` o `mondoisometrico-subiaco`), fork o base su dg996/mondoisometrico o krasun/isometricworld
@@ -57,11 +57,11 @@ Esito (18 novembre 2026, dettaglio in `docs/fase3-painting.md`): `npm run paint`
 Esito (22 novembre 2026, dettaglio in `docs/fase4-viewer.md`): `npm run dev` apre una pagina statica. Legge la piramide AVIF in `data/web` (dipinta se `world.json` lo dice, altrimenti il render) e, se non c'è, genera uno schema di circa 60 KB. I sei luoghi di `config/areas.json` sono pin con scheda in italiano; il pixel usa la stessa proiezione ENU della FASE 2, heading 315°, alla quota del suolo. Open-Meteo, senza chiave, copre Subiaco e Monte Livata; il filtro notte segue alba e tramonto. «Segnala un errore» apre un'issue GitHub già compilata, senza token. I crediti stanno nel piè di pagina. Il traffico non c'è. Le tile non sono nel repository.
 
 ## FASE 5 – Pubblicazione e manutenzione
-- [ ] Hosting Vercel + Cloudflare R2
-- [ ] Deploy iniziale del centro storico
-- [ ] Documentazione: ATTRIBUTION, come estendere, crediti OSM / Regione Lazio / ESA / Copernicus
-- [ ] Promozione su X taggando @dom_gag_96
-- [ ] Aggiornamenti periodici dei dati OSM
+- [x] Preparazione hosting: `vercel.json` (CSP, cache, rewrite) e `npm run publish:tiles` per Cloudflare R2. Nessun deploy eseguito: mancano gli account nell'ambiente.
+- [ ] Deploy iniziale del centro storico (lo fa chi collega Vercel e il bucket, vedi docs/fase5-pubblicazione.md)
+- [x] Documentazione: ATTRIBUTION, crediti OSM / Regione Lazio DBGT / Copernicus / ESA WorldCover / Open-Meteo / Mondo Isometrico / isometricworld
+- [x] Bozza del post su X che tagga @dom_gag_96, solo in docs/fase5-pubblicazione.md. Non pubblicato.
+- [x] Aggiornamenti OSM: workflow manuale (cron mensile commentato) che rilancia fetch e check e segnala le differenze, senza pubblicare
 
 ## FASE 6 – Estensioni ad altri comuni (dopo Subiaco)
 - [ ] Dolo (VE): Riviera del Brenta, ville venete, terreno pianeggiante; dati cartografici Regione Veneto

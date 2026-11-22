@@ -54,11 +54,11 @@ Open-Meteo, senza chiave, per Subiaco (origine) e Monte Livata (41,93978 N 13,14
 
 ## Crediti
 
-In fondo alla pagina: contributori OpenStreetMap, Regione Lazio, Copernicus DEM, ESA WorldCover, Mondo Isometrico / @dom_gag_96.
+In fondo alla pagina: contributori OpenStreetMap (ODbL), Regione Lazio DBGT (CC BY 4.0), Copernicus DEM, ESA WorldCover (CC BY 4.0), Open-Meteo (CC BY 4.0), Mondo Isometrico e isometricworld (MIT), @dom_gag_96. Il testo lungo è in `ATTRIBUTION.md`.
 
 ## Aperto
 
 - Il traffico e le animazioni della roadmap restano fuori.
-- Publish e deploy sono ancora la FASE 5: il viewer non carica R2.
+- In produzione le tile stanno su R2 (`TILES_PUBLIC_URL`, vedi `docs/fase5-pubblicazione.md`). In locale `npm run dev` le legge da `data/`.
 - Lo schema di demo arriva solo allo zoom 3. Con la piramide vera lo zoom nativo resta 8.
 - La quota della seggiovia non è una misura del DSM di progetto.

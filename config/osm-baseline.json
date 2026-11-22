@@ -1,0 +1,9 @@
+{
+  "snapshot": "2026-11-15T17:17:13Z",
+  "fonte": "Conteggi di docs/fase0-dati-osm.md (15 novembre 2026): edifici way e relation, gli stessi che il fetch mette in osm.json. Gli id dei singoli edifici non sono in quello snapshot. Si aggiungono in locale con npm run osm:diff -- --scrivi-baseline. Il workflow non riscrive questo file e non pubblica.",
+  "aree": {
+    "centro-storico": { "edifici": 292 },
+    "centro-monasteri": { "edifici": 391 },
+    "monte-livata": { "edifici": 311 }
+  }
+}

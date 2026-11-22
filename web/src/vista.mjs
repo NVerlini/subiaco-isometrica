@@ -228,3 +228,21 @@ export function livelloVista(zoom, world) {
   const max = world?.native_zoom ?? ZOOM_NATIVO;
   return Math.min(max, Math.max(min, Math.floor(zoom)));
 }
+
+/** Base pubblica delle tile. Vuota in locale: il server di dev legge data/. */
+export function normalizzaBaseTile(base) {
+  if (base == null) return "";
+  const testo = String(base).trim();
+  if (!testo) return "";
+  return testo.replace(/\/+$/, "");
+}
+
+export function baseTile(valore = globalThis.__TILES_PUBLIC_URL__) {
+  return normalizzaBaseTile(typeof valore === "string" ? valore : "");
+}
+
+/** Percorso assoluto del viewer, preceduto dalla base solo se c'è. */
+export function urlRisorsa(percorso, base = baseTile()) {
+  if (!String(percorso).startsWith("/")) throw new Error(`Percorso non assoluto: ${percorso}`);
+  return `${normalizzaBaseTile(base)}${percorso}`;
+}

@@ -282,6 +282,7 @@ footer {
   gap: 6px 8px;
   font-family: "Avenir Next", "Segoe UI", sans-serif;
   font-size: 12px;
+  line-height: 1.45;
   color: #e6dccb;
 }
 

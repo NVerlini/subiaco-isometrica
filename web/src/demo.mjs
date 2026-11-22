@@ -10,6 +10,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { leggiAree, leggiPipeline } from "../../pipeline/src/config.mjs";
 import { STILE, assi } from "../../pipeline/src/geo.mjs";
+import { CREDITI } from "../../pipeline/src/crediti.mjs";
 import { elencoLandmark, pixelLuogo } from "./vista.mjs";
 
 const TILE = 512;
@@ -23,13 +24,7 @@ function firma(buf) {
 }
 
 function attributi() {
-  return [
-    "© contributori OpenStreetMap, ODbL",
-    "© Regione Lazio, DBGT, CC BY 4.0",
-    "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium",
-    "Copernicus DEM GLO-30 © DLR e Airbus, programma Copernicus dell'Unione Europea",
-    "Mondo Isometrico, Domenico Gagliardi (@dom_gag_96), MIT",
-  ];
+  return CREDITI;
 }
 
 function svgSchema(punti, ox, oy, lato, latoArt) {

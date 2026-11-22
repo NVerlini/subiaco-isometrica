@@ -38,7 +38,7 @@ function scrivi(file, valore) {
   writeFileSync(file, JSON.stringify(valore));
 }
 
-async function fetchArea(area, force) {
+async function fetchArea(area, force, soloOsm = false) {
   const dir = cartellaRaw(area.id);
   const osmFile = path.join(dir, "osm.json");
   const roadsFile = path.join(dir, "roads.json");
@@ -62,6 +62,11 @@ async function fetchArea(area, force) {
     console.log(`  snapshot: ${json.osm3s?.timestamp_osm_base ?? "sconosciuto"}`);
     console.log(`  elementi ${parti.osm.elements.length}, strade ${parti.roads.elements.length}, suolo ${parti.ground.elements.length}`);
     console.log("  Dati © contributori OpenStreetMap (ODbL).");
+  }
+
+  if (soloOsm) {
+    console.log("  solo OSM: CTR, DBGT, DEM e WorldCover non vengono toccati.");
+    return;
   }
 
   const ctrFile = path.join(dir, "ctrn.json");
@@ -168,14 +173,17 @@ export async function esegui(argv) {
   richiediNode24();
   caricaEnv();
   const config = leggiAree();
-  const opt = opzioni(argv, config.aree);
+  const soloOsm = argv.includes("--solo-osm");
+  const opt = opzioni(argv.filter((arg) => arg !== "--solo-osm"), config.aree);
   if (opt.help) {
     aiutoStadio("fetch");
+    console.log("--solo-osm scarica solo OpenStreetMap. Niente DEM, WorldCover o CTR. Lo usa il controllo degli aggiornamenti.");
     return;
   }
   console.log("Subiaco Isometrica — fetch");
-  await fetchComuni(config);
-  for (const id of opt.ids) await fetchArea(areaPerId(config, id), opt.force);
+  if (soloOsm) console.log("Modalità solo OSM: DEM, WorldCover e CTR restano come sono.");
+  else await fetchComuni(config);
+  for (const id of opt.ids) await fetchArea(areaPerId(config, id), opt.force, soloOsm);
   console.log("fetch completato. Cache in data/raw/ (non versionata).");
 }
 

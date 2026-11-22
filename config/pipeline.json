@@ -93,13 +93,13 @@
     "quando": "FASE 4",
     "cartelle": ["web/src", "web/public"],
     "deepLink": "#@x,y,zoom",
-    "nota": "Viewer in web/, senza Astro né OpenSeadragon. Stessi numeri della piramide: zoom 2–8, tile 512, overlap 0, maxZoomPixelRatio 2,5, zoomPerScroll 1,35. npm run dev legge data/web se c'è, altrimenti genera uno schema."
+    "nota": "Viewer in web/, senza Astro né OpenSeadragon. Stessi numeri della piramide: zoom 2–8, tile 512, overlap 0, maxZoomPixelRatio 2,5, zoomPerScroll 1,35. npm run dev legge data/web se c'è, altrimenti genera uno schema. Il build di produzione legge TILES_PUBLIC_URL."
   },
   "deploy": {
     "quando": "FASE 5",
-    "tile": "Cloudflare R2, bucket ancora da creare",
-    "sito": "Vercel, output web/dist",
-    "comandi": ["npm run export", "npm run publish", "npm run deploy"],
-    "ordine": "export scrive la cache, publish carica R2, deploy pubblica il sito. Il Worker Cloudflare del riferimento è solo un backup e non fa parte di questo setup."
+    "tile": "Cloudflare R2. Credenziali solo in .env (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, TILES_PUBLIC_URL).",
+    "sito": "Vercel, output web/dist. npm run deploy non contatta il servizio.",
+    "comandi": ["npm run export", "npm run publish:tiles", "npm run build"],
+    "ordine": "export scrive la cache, publish:tiles carica R2, Vercel pubblica il sito dal repository. Il Worker Cloudflare del riferimento è solo un backup e non fa parte di questo setup. Vedi docs/fase5-pubblicazione.md."
   }
 }
