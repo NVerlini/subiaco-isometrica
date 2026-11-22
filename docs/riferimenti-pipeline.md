@@ -79,17 +79,9 @@ Qui i numeri sono gli stessi (`config/pipeline.json`, `pipeline/src/finestre.mjs
 
 ## FASE 4 — viewer
 
-Stack del riferimento: Astro e OpenSeadragon. Non sono dipendenze di questa fase di setup, così `npm install` non scarica il sito prima che esista una tile.
+Il riferimento usa Astro e OpenSeadragon. Qui la pagina è statica, in `web/`, e il viewer è scritto per questa piramide: stessi numeri (zoom 2–8, tile 512, overlap 0, `maxZoomPixelRatio` 2,5, `zoomPerScroll` 1,35), deep link `#@x,y,zoom`, tile lette da `data/web/` e non da `web/public`. Non è stato copiato il sorgente del viewer di Roma. Il dettaglio è in `docs/fase4-viewer.md`.
 
-Contratto da rispettare quando si scriverà `web/`:
-
-- Una pagina per vista, slug ASCII (`/subiaco`), dati regione letti da `world.json` pubblicato.
-- Piramide sparsa, `minLevel` 2 e `maxLevel` 8, `tileOverlap` 0, `maxZoomPixelRatio` 2,5, `zoomPerScroll` 1,35.
-- Deep link `#@x,y,zoom` in pixel d'arte globali.
-- Le tile non stanno in `web/public`: in locale il dev server legge `data/web/` sopra l'origine di produzione.
-- Crediti OSM visibili, come richiede l'ODbL.
-
-Traffico, gatti, treni, meteo e ciclo giorno/notte sono funzioni del riferimento o della roadmap, non prerequisiti del viewer. Il meteo (Open-Meteo) e il giorno/notte sono in FASE 4 della roadmap; il traffico è facoltativo. Non si porta il proxy TomTom di Mondo Isometrico.
+Open-Meteo e il filtro giorno/notte ci sono. Il proxy TomTom, i gatti e i treni del riferimento no. Il traffico della roadmap resta facoltativo e non è stato fatto.
 
 ## FASE 5 — pubblicazione
 
@@ -105,7 +97,7 @@ Non creare ancora `vercel.json` né `wrangler.jsonc`: senza sito e senza bucket 
 
 ## Cosa resta volutamente fuori
 
-- Viewer, publish, deploy. Fetch, ground, scene, render, pittura ed export sono fatti per il centro storico. La pittura, senza chiave, non chiama un'API.
+- Publish e deploy. Il viewer c'è (`npm run dev`) e non pubblica. Fetch, ground, scene, render, pittura ed export sono fatti per il centro storico. La pittura, senza chiave, non chiama un'API.
 - I PNG di stile dei riferimenti. Il prompt sta in `config/paint.json`.
 - Workspace npm `pipeline/` + `web/`: ha senso quando quei pacchetti hanno dipendenze (Astro). Oggi c'è un solo `package.json`. Three.js e sharp sono già dipendenze del render.
 - `geoidM`, `groundH`, `heightBase` e l'heading (315°) sono fissati.

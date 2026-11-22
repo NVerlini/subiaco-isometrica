@@ -1,0 +1,316 @@
+:root {
+  --carta: #f4efe6;
+  --inchiostro: #1c1915;
+  --bosco: #1b2d24;
+  --muschio: #2f4a3a;
+  --terracotta: #8c3b2c;
+  --linea: rgba(28, 25, 21, 0.14);
+  --ombra: 0 10px 28px rgba(20, 16, 12, 0.18);
+  color-scheme: light;
+  font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bosco);
+  color: var(--inchiostro);
+}
+
+body {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+header, footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--bosco);
+  color: var(--carta);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.occhiello {
+  margin: 0 0 2px;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #d5c7ae;
+}
+
+.comandi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.fonte {
+  margin: 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 13px;
+  color: #efe6d6;
+}
+
+#vista {
+  position: relative;
+  overflow: hidden;
+  background: #6e8f66;
+  touch-action: none;
+  cursor: grab;
+}
+
+#vista:active { cursor: grabbing; }
+
+#stato {
+  position: absolute;
+  z-index: 2;
+  margin: 16px;
+  color: var(--carta);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+#tessere, #pin, #velo {
+  position: absolute;
+  inset: 0;
+}
+
+#tessere img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  user-select: none;
+}
+
+#pin { z-index: 2; pointer-events: none; }
+
+#velo {
+  z-index: 1;
+  pointer-events: none;
+  background: transparent;
+}
+
+body.notte #tessere img {
+  filter: brightness(0.42) saturate(0.62) hue-rotate(18deg);
+}
+
+body.notte #velo {
+  background: rgba(10, 18, 48, 0.42);
+}
+
+.pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.pin .punto {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fffaf3;
+  border-radius: 50%;
+  background: var(--terracotta);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.pin .nome {
+  position: absolute;
+  left: 24px;
+  top: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--carta);
+  color: var(--inchiostro);
+  font: 600 13px/1.2 "Avenir Next", "Segoe UI", sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+}
+
+.pin.sinistra .nome {
+  left: auto;
+  right: 24px;
+}
+
+.pin.aperto .punto { background: var(--bosco); }
+
+.pannello {
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  background: var(--carta);
+  color: var(--inchiostro);
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  box-shadow: var(--ombra);
+}
+
+#luoghi {
+  position: absolute;
+  z-index: 3;
+  top: 78px;
+  left: 14px;
+  display: flex;
+  flex-direction: column;
+  width: min(240px, calc(100vw - 28px));
+  padding: 6px;
+}
+
+#luoghi button {
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+
+#luoghi button[aria-current="true"],
+#luoghi button:hover {
+  background: #efe4d4;
+}
+
+#meteo {
+  position: absolute;
+  z-index: 3;
+  top: 78px;
+  right: 14px;
+  width: min(230px, calc(100vw - 28px));
+  padding: 10px 12px;
+}
+
+#meteo p {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+#meteo .dove { font-weight: 600; }
+#meteo .quanto { color: #4a433b; text-align: right; }
+
+.fase {
+  position: absolute;
+  z-index: 3;
+  top: 168px;
+  right: 14px;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+#scheda {
+  position: absolute;
+  z-index: 4;
+  left: 14px;
+  bottom: 58px;
+  width: min(360px, calc(100vw - 28px));
+  padding: 14px 14px 12px;
+}
+
+#scheda h2 {
+  margin: 0 0 6px;
+  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+  font-size: 22px;
+}
+
+#scheda p { margin: 0 0 8px; font-size: 15px; line-height: 1.4; }
+#scheda .meta { color: #5c564e; font-size: 12px; }
+#scheda .azioni {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+#scheda a { color: var(--terracotta); font-size: 13px; }
+#scheda button {
+  border: 0;
+  border-radius: 8px;
+  background: var(--muschio);
+  color: var(--carta);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+#segnala {
+  position: fixed;
+  z-index: 3;
+  right: 14px;
+  bottom: 52px;
+  padding: 8px 12px;
+  color: var(--inchiostro);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#segnala:hover { color: var(--terracotta); }
+
+footer {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 12px;
+  color: #e6dccb;
+}
+
+footer a { color: inherit; }
+
+@media (max-width: 720px) {
+  header { align-items: flex-start; flex-wrap: wrap; }
+  #meteo { left: 14px; right: auto; }
+  .fase { top: 158px; left: 14px; right: auto; }
+  #luoghi {
+    top: auto;
+    bottom: 12px;
+    max-height: 34%;
+    overflow: auto;
+  }
+  #scheda {
+    top: 210px;
+    bottom: auto;
+    max-height: calc(100% - 230px);
+    overflow: auto;
+  }
+  body:has(#scheda:not([hidden])) #luoghi { display: none; }
+  #segnala {
+    position: static;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    color: #efe6d6;
+    font-size: 13px;
+  }
+}

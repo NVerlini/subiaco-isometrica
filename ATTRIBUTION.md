@@ -14,7 +14,7 @@ Quei file portano la nota MIT:
 - Copyright (c) 2026 NVerlini
 
 File con quella nota: `pipeline/src/geo.mjs` (camera ENU e camera di tile), `pipeline/page/renderer.js` (pagina Three.js), `pipeline/src/render.mjs` (Chromium), `pipeline/src/export.mjs` (piramide degli zoom), `pipeline/src/overpass.mjs`, `pipeline/src/dem.mjs`, `pipeline/src/worldcover.mjs` (tavolozza), `pipeline/src/shapefile.mjs` (lettura shp/dbf della CTR), `pipeline/src/fetch.mjs` e `pipeline/src/ground.mjs` (cache e apertura del DSM).
-Il resto della scena, le regole di Subiaco (landmark, torri, impianti, pista di fondo, fallback delle altezze) e questo repository restano MIT, Copyright (c) 2026 NVerlini.
+Il resto della scena, le regole di Subiaco (landmark, torri, impianti, pista di fondo, fallback delle altezze), il viewer in `web/` e questo repository restano MIT, Copyright (c) 2026 NVerlini. Il viewer non copia OpenSeadragon né la pagina Astro del riferimento: mostra i crediti delle fonti e di Mondo Isometrico (@dom_gag_96).
 Il dettaglio di cosa si prende e in quale fase è in `docs/riferimenti-pipeline.md`.
 
 ## Dati
