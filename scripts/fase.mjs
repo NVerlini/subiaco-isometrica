@@ -7,6 +7,7 @@
  * fetch, ground e scene sono la FASE 1. render ed export sono la FASE 2.
  * paint è la FASE 3. export --dipinte ricostruisce la piramide dalle tile dipinte.
  * dev è la FASE 4: viewer statico, con schema leggero se la piramide non c'è.
+ * publish è la FASE 5: carica le tile su R2. deploy non contatta Vercel.
  */
 
 const STADI = {
@@ -48,12 +49,12 @@ const STADI = {
   publish: {
     fase: 5,
     titolo: "Pubblicazione delle tile",
-    dettaglio: "Caricherebbe la cache su R2. Il bucket non esiste ancora e questo comando non contatta alcun servizio.",
+    dettaglio: "Carica data/web/regions/<regione>/ su R2. Senza credenziali in .env si ferma; con --dry-run non contatta il bucket.",
   },
   deploy: {
     fase: 5,
     titolo: "Deploy del sito",
-    dettaglio: "Pubblicherebbe il sito dopo le tile. Non c'è ancora una config di hosting e questo comando non contatta alcun servizio.",
+    dettaglio: "Non contatta Vercel. Il sito si pubblica collegando il repository: vedi docs/fase5-pubblicazione.md. npm run build prepara web/dist.",
   },
 };
 
@@ -71,6 +72,16 @@ if (nome === "fetch" || nome === "ground" || nome === "scene" || nome === "rende
 } else if (nome === "dev") {
   const modulo = await import("../web/src/server.mjs");
   await modulo.avvia(process.argv.slice(3));
+} else if (nome === "publish") {
+  const { richiediNode24 } = await import("../pipeline/src/config.mjs");
+  richiediNode24();
+  const modulo = await import("../scripts/publish-tiles.mjs");
+  await modulo.esegui(process.argv.slice(3));
+} else if (nome === "deploy") {
+  console.log("deploy — FASE 5. Questo comando non contatta Vercel e non pubblica il sito.");
+  console.log("Collega il repository a un progetto Vercel (build: npm run build, output: web/dist)");
+  console.log("e imposta TILES_PUBLIC_URL. I passi sono in docs/fase5-pubblicazione.md.");
+  console.log("Le tile si caricano a parte, con npm run publish:tiles, sul bucket R2.");
 } else {
   console.log(`${nome} — FASE ${stadio.fase}, non ancora implementata.`);
   console.log(stadio.titolo + ".");

@@ -14,8 +14,21 @@ Quei file portano la nota MIT:
 - Copyright (c) 2026 NVerlini
 
 File con quella nota: `pipeline/src/geo.mjs` (camera ENU e camera di tile), `pipeline/page/renderer.js` (pagina Three.js), `pipeline/src/render.mjs` (Chromium), `pipeline/src/export.mjs` (piramide degli zoom), `pipeline/src/overpass.mjs`, `pipeline/src/dem.mjs`, `pipeline/src/worldcover.mjs` (tavolozza), `pipeline/src/shapefile.mjs` (lettura shp/dbf della CTR), `pipeline/src/fetch.mjs` e `pipeline/src/ground.mjs` (cache e apertura del DSM).
-Il resto della scena, le regole di Subiaco (landmark, torri, impianti, pista di fondo, fallback delle altezze), il viewer in `web/` e questo repository restano MIT, Copyright (c) 2026 NVerlini. Il viewer non copia OpenSeadragon né la pagina Astro del riferimento: mostra i crediti delle fonti e di Mondo Isometrico (@dom_gag_96).
+Il resto della scena, le regole di Subiaco (landmark, torri, impianti, pista di fondo, fallback delle altezze), il viewer in `web/` e questo repository restano MIT, Copyright (c) 2026 NVerlini. Il viewer non copia OpenSeadragon né la pagina Astro del riferimento.
 Il dettaglio di cosa si prende e in quale fase è in `docs/riferimenti-pipeline.md`.
+
+## Viewer
+Il piè di pagina di `web/public/index.html` cita, con link, le stesse fonti di questa pagina:
+
+- © contributori OpenStreetMap (ODbL)
+- © Regione Lazio, DBGT (CC BY 4.0)
+- Copernicus DEM
+- © ESA WorldCover (CC BY 4.0), con la citazione Sentinel nel titolo del link
+- Meteo: Open-Meteo (CC BY 4.0)
+- Mondo Isometrico e isometricworld (MIT)
+- @dom_gag_96
+
+La stessa lista, in forma breve, è `pipeline/src/crediti.mjs` e finisce in `world.json`.
 
 ## Dati
 - **OpenStreetMap**: © contributori OpenStreetMap, dati disponibili con licenza [ODbL](https://opendatacommons.org/licenses/odbl/). https://www.openstreetmap.org/copyright
@@ -30,6 +43,7 @@ Il dettaglio di cosa si prende e in quale fase è in `docs/riferimenti-pipeline.
 - **Copernicus DEM**: Copernicus DEM GLO-30 Public, © DLR e/o Airbus, fornito nell'ambito del programma Copernicus dell'Unione Europea.
   Tile `Copernicus_DSM_COG_10_N41_00_E013_00_DEM`, quote ortometriche EGM2008.
   https://spacedata.copernicus.eu/collections/copernicus-digital-elevation-model
+- **Open-Meteo**: previsioni, alba e tramonto nel viewer, senza chiave. Licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). https://open-meteo.com/
 
 Le immagini dipinte con un provider a chiave, quando si userà, saranno derivate da render dei dati sopra indicati.
 Le anteprime PNG, il GLB e le tile della FASE 2 sono geometria, non pittura. Le tile non sono nel repository.

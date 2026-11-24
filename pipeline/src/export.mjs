@@ -23,6 +23,7 @@ import {
   richiediNode24,
 } from "./config.mjs";
 import { STILE, assi } from "./geo.mjs";
+import { CREDITI } from "./crediti.mjs";
 import { ErrorePrevisto } from "./overpass.mjs";
 
 const TS = 512;
@@ -163,12 +164,7 @@ export async function esportaArea(area, pipeline, opt = {}) {
     format: FORMATO,
     layers: { photo: nativi.size },
     dipinte,
-    attributions: [
-      "© contributori OpenStreetMap, ODbL",
-      "© Regione Lazio, DBGT, CC BY 4.0",
-      "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium",
-      "Copernicus DEM GLO-30 © DLR e Airbus, programma Copernicus dell'Unione Europea",
-    ],
+    attributions: CREDITI,
     nota: dipinte
       ? "Piramide delle tile dipinte. Il viewer (FASE 4) somma origin/span all'indice di OpenSeadragon."
       : "Piramide delle tile non dipinte. Il viewer (FASE 4) somma origin/span all'indice di OpenSeadragon.",

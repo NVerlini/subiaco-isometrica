@@ -21,6 +21,8 @@ import {
   zoomMassimo,
   etichettaFonte,
   leggiMeteo,
+  baseTile,
+  urlRisorsa,
 } from "./vista.mjs";
 
 const AVIF_1PX = "data:image/avif;base64,AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAAA5waXRtAAAAAAABAAAAImlsb2MAAAAAREAAAQABAAAAAAD6AAEAAAAAAAAAFwAAACNpaW5mAAAAAAABAAAAFWluZmUCAAAAAAEAAGF2MDEAAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAEAAAABAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAfbWRhdBIACgc4AAYQENBpMgoYAAAAQAX172To";
@@ -171,11 +173,12 @@ function disegnaTessere() {
         img.dataset.k = chiave;
         img.alt = "";
         img.draggable = false;
-        img.src = `/tiles/photo/${z}/${tx}/${ty}.${statoVista.formato}?v=${livello[`${tx}_${ty}`]}`;
+        const versione = livello[`${tx}_${ty}`];
+        img.src = urlRisorsa(`/tiles/photo/${z}/${tx}/${ty}.${statoVista.formato}?v=${versione}`, radiceTile);
         img.addEventListener("error", () => {
           if (statoVista.formato === "avif" && !img.dataset.jpg) {
             img.dataset.jpg = "1";
-            img.src = `/tiles/photo/${z}/${tx}/${ty}.jpg?v=${livello[`${tx}_${ty}`]}`;
+            img.src = urlRisorsa(`/tiles/photo/${z}/${tx}/${ty}.jpg?v=${versione}`, radiceTile);
           }
         });
         tessere.appendChild(img);
@@ -327,22 +330,37 @@ document.addEventListener("keydown", (ev) => {
 });
 window.addEventListener("resize", disegna);
 
-const [world, indice, avif] = await Promise.all([
-  fetch("/data/world.json").then((r) => r.json()),
-  fetch("/data/tiles-photo.json").then((r) => r.json()),
-  supportoAvif(),
-]);
-statoVista.world = world;
-statoVista.indice = indice;
-statoVista.fonte = fontePiramide(world);
-statoVista.formato = avif ? "avif" : "jpg";
-fonteEl.textContent = etichettaFonte(statoVista.fonte);
-if (!avif) fonteEl.textContent += " · JPEG";
-preparaLuoghi();
-const rocca = statoVista.luoghi.find((l) => l.id === "rocca-abbaziale");
-const hash = daHash();
-if (hash) centraSu(hash.x, hash.y, hash.zoom);
-else centraSu(rocca.x, rocca.y, world.demo ? 4 : Math.min(world.native_zoom, 5));
-stato.hidden = true;
-caricaMeteo();
-window.vistaPronta = true;
+const radiceTile = baseTile();
+
+try {
+  const [world, indice, avif] = await Promise.all([
+    fetch(urlRisorsa("/data/world.json", radiceTile)).then((r) => {
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json();
+    }),
+    fetch(urlRisorsa("/data/tiles-photo.json", radiceTile)).then((r) => {
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json();
+    }),
+    supportoAvif(),
+  ]);
+  statoVista.world = world;
+  statoVista.indice = indice;
+  statoVista.fonte = fontePiramide(world);
+  statoVista.formato = avif ? "avif" : "jpg";
+  fonteEl.textContent = etichettaFonte(statoVista.fonte);
+  if (!avif) fonteEl.textContent += " · JPEG";
+  preparaLuoghi();
+  const rocca = statoVista.luoghi.find((l) => l.id === "rocca-abbaziale");
+  const hash = daHash();
+  if (hash) centraSu(hash.x, hash.y, hash.zoom);
+  else centraSu(rocca.x, rocca.y, world.demo ? 4 : Math.min(world.native_zoom, 5));
+  stato.hidden = true;
+  caricaMeteo();
+  window.vistaPronta = true;
+} catch {
+  stato.hidden = false;
+  stato.textContent = radiceTile
+    ? "Le tile non rispondono. Controlla TILES_PUBLIC_URL e il CORS del bucket."
+    : "Nessuna piramide. In locale le tile stanno in data/. In produzione il build incorpora TILES_PUBLIC_URL.";
+}

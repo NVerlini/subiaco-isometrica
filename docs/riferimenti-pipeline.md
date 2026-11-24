@@ -87,17 +87,17 @@ Open-Meteo e il filtro giorno/notte ci sono. Il proxy TomTom, i gatti e i treni 
 
 Ordine del riferimento, da tenere:
 
-1. `export` costruisce la piramide (zoom 8 → 2) in `data/web/regions/subiaco/` e aggiorna `data/web-state/`. Riesegue solo le tile la cui impronta è cambiata.
-2. `publish` carica la cache su R2 e poi la svuota. Le URL delle tile portano l'hash (`?v=`) e si possono tenere in cache un anno. `world.json` si riscrive sul posto e ha una cache corta.
-3. `deploy` pubblica il sito (nel riferimento: Vercel, `web/dist`). Le tile non fanno parte del deploy.
+1. `export` costruisce la piramide (zoom 8 → 2) in `data/web/regions/subiaco/`. Le URL delle tile portano l'hash (`?v=`) e si possono tenere in cache un anno. `world.json` si riscrive sul posto e ha una cache corta.
+2. `publish:tiles` carica quella cartella su R2 (API S3). Salta i file il cui SHA-256 è già nel manifest locale. Non svuota `data/web/`: la cache resta, il manifest evita il secondo invio. Non copia l'account id né il nome dei bucket scritti in `HOSTING.md` del riferimento.
+3. Il sito è Vercel, output `web/dist`, config in `vercel.json`. `npm run deploy` non chiama Vercel: il collegamento del repository lo fa chi ha l'account. Le tile non fanno parte del deploy. Il viewer di produzione legge `TILES_PUBLIC_URL`; `npm run dev` legge `data/`.
 
-`data/derived/` (render e pitture) e `data/web-state/` non si cancellano: sono ore di lavoro. `data/web/` è sacrificabile, è solo la coda di upload.
+`data/derived/` (render e pitture) e `data/web-state/` non si cancellano: sono ore di lavoro. `data/web/` è la coda di upload e resta in locale.
 
-Non creare ancora `vercel.json` né `wrangler.jsonc`: senza sito e senza bucket sarebbero config finte. Il Worker Cloudflare, in Mondo Isometrico, è un backup e non il percorso di rilascio. L'account id scritto in `HOSTING.md` di quel repository non va copiato.
+Il Worker Cloudflare, in Mondo Isometrico, è un backup e non il percorso di rilascio. I passi per bucket, variabili e progetto Vercel sono in `docs/fase5-pubblicazione.md`. Gli aggiornamenti OSM sono un workflow manuale, senza pubblicazione automatica.
 
 ## Cosa resta volutamente fuori
 
-- Publish e deploy. Il viewer c'è (`npm run dev`) e non pubblica. Fetch, ground, scene, render, pittura ed export sono fatti per il centro storico. La pittura, senza chiave, non chiama un'API.
+- Il deploy vero su Vercel e il primo upload sul bucket: servono gli account di chi pubblica. I comandi e `vercel.json` ci sono; `npm run deploy` non contatta il servizio. Fetch, ground, scene, render, pittura ed export sono fatti per il centro storico. La pittura, senza chiave, non chiama un'API.
 - I PNG di stile dei riferimenti. Il prompt sta in `config/paint.json`.
 - Workspace npm `pipeline/` + `web/`: ha senso quando quei pacchetti hanno dipendenze (Astro). Oggi c'è un solo `package.json`. Three.js e sharp sono già dipendenze del render.
 - `geoidM`, `groundH`, `heightBase` e l'heading (315°) sono fissati.

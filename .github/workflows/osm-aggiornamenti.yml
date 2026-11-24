@@ -1,0 +1,97 @@
+# Controllo manuale degli aggiornamenti OpenStreetMap.
+# Non carica le tile e non pubblica il sito.
+# Il cron mensile è commentato: per attivarlo, togliere il cancelletto
+# alle due righe schedule / cron.
+
+name: Aggiornamenti OSM
+
+on:
+  workflow_dispatch:
+    inputs:
+      area:
+        description: "Area (vuoto = tutte): centro-storico, centro-monasteri, monte-livata"
+        required: false
+        default: ""
+        type: string
+  # schedule:
+  #   - cron: "0 6 1 * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osm-aggiornamenti
+  cancel-in-progress: false
+
+jobs:
+  verifica:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AREA: ${{ github.event.inputs.area }}
+    steps:
+      - name: Codice
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Dipendenze
+        run: npm ci
+
+      - name: Fetch OSM
+        run: |
+          set -eu
+          case "$AREA" in
+            "")
+              npm run fetch -- --solo-osm --force --all
+              ;;
+            centro-storico|centro-monasteri|monte-livata)
+              npm run fetch -- --solo-osm --force "$AREA"
+              ;;
+            *)
+              echo "Area non ammessa. Usa centro-storico, centro-monasteri, monte-livata, oppure lascia vuoto."
+              exit 1
+              ;;
+          esac
+
+      - name: Differenze su edifici e landmark
+        id: diff
+        continue-on-error: true
+        run: |
+          set -eu
+          if [ -n "$AREA" ]; then
+            npm run osm:diff -- "$AREA"
+          else
+            npm run osm:diff
+          fi
+
+      - name: Verifica Overpass
+        id: check
+        run: |
+          set -eu
+          if [ -n "$AREA" ]; then
+            npm run check:osm -- "$AREA"
+          else
+            npm run check:osm -- centro-storico
+            npm run check:osm -- centro-monasteri
+            npm run check:osm -- monte-livata
+          fi
+
+      - name: Rapporto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osm-diff
+          path: data/osm-diff.md
+          if-no-files-found: ignore
+
+      - name: Esito
+        if: always()
+        run: |
+          set -eu
+          test "${{ steps.diff.outcome }}" = "success"
+          test "${{ steps.check.outcome }}" = "success"
