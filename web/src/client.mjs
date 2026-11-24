@@ -362,5 +362,5 @@ try {
   stato.hidden = false;
   stato.textContent = radiceTile
     ? "Le tile non rispondono. Controlla TILES_PUBLIC_URL e il CORS del bucket."
-    : "Nessuna piramide. In locale le tile stanno in data/. In produzione il build incorpora TILES_PUBLIC_URL.";
+    : "Nessuna piramide su questa origine. Le tile stanno accanto alla pagina; in locale npm run dev le legge da data/.";
 }

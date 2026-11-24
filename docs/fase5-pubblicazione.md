@@ -1,10 +1,46 @@
 # FASE 5 — Pubblicazione
 
-Preparazione del sito e delle tile. I comandi di questo repository non creano account, non chiedono token e non fanno un deploy: Vercel e Cloudflare restano da collegare sull'account di chi pubblica. Nessun segreto va committato. I valori stanno solo in `.env`, che è gitignorato.
+Il sito in uso è **GitHub Pages**. Vercel e Cloudflare R2, più sotto, restano la strada successiva: i comandi di questo repository non creano account, non chiedono token e non fanno un deploy da soli. Nessun segreto va committato. I valori di R2 stanno solo in `.env`, che è gitignorato.
 
-Le tile escono da `npm run export` in `data/web/regions/subiaco/` (AVIF, `data/world.json`, `data/tiles-photo.json`). Il viewer in produzione le legge da `TILES_PUBLIC_URL`. In locale `npm run dev` ignora quella variabile e continua a servirle da `data/`.
+In locale `npm run dev` ignora `TILES_PUBLIC_URL` e legge le tile da `data/`. In produzione, con `TILES_PUBLIC_URL` vuoto, le tile sono sulla stessa origine del sito.
+
+## GitHub Pages
+
+Indirizzo: [https://nverlini.github.io/subiaco-isometrica/](https://nverlini.github.io/subiaco-isometrica/).
+
+L'unica cosa da fare sull'account: **Settings → Pages → Source: GitHub Actions**. Poi un push su `main`, oppure **Actions → Pagine → Run workflow**. Non servono token, variabili d'ambiente o segreti. Il primo avvio crea l'ambiente `github-pages`.
+
+Il workflow `.github/workflows/pages.yml` parte su `push` a `main` e su `workflow_dispatch`. Permessi: `pages: write`, `id-token: write`, `contents: read`. I passi sono `actions/configure-pages`, Node 24, `npm ci`, `npm run build`, `actions/upload-pages-artifact` da `web/dist` e `actions/deploy-pages`.
+
+`configure-pages` fornisce il base path (`/subiaco-isometrica`). Il build lo scrive in `<base href>` di `index.html` e di `404.html`. Foglio di stile, script e tile usano percorsi relativi, così restano sotto quel prefisso. `TILES_PUBLIC_URL` nel workflow è vuoto: niente bucket e niente CORS.
+
+### Perché la piramide non si rigenera nel runner
+
+Scaricare il DBGT (login anonimo del geoportale, zip da circa 100 MB), il Copernicus DEM, WorldCover, e avviare Chromium a ogni push è fragile. Il workflow non lo fa.
+
+Nel repository c'è una piramide leggera del solo centro storico, AVIF più JPEG di riserva, in `web/tiles/centro-storico/`. È uno schema della Rocca e del Ponte San Francesco, non le 33 tile del render (quelle restano in `data/` e non si versionano). `npm run build` la copia in `web/dist` e si ferma se il totale supera 50 MB. Il viewer la segnala come schema.
+
+### Tile dipinte a mano, o generate fuori dalla pipeline
+
+Cartella: `tiles/dipinte/centro-storico/`. Istruzioni anche nel README di quella cartella.
+
+- PNG **1024×1024**.
+- Nome uguale alle tile di render: `tx_ty.png`, per esempio `-1_-2.png`.
+- Se il build ne trova almeno una, ricostruisce la piramide con sharp (niente Chromium, niente download) e pubblica quella al posto dello schema. `world.json` ha `dipinte: true`.
+- Senza PNG, resta lo schema versionato.
+
+Per sostituire lo schema con un export locale già pronto:
+
+```bash
+npm run export
+npm run build -- --aggiorna-tile
+```
+
+`--dipinte` vale lo stesso, se le PNG stanno in `data/derived/centro-storico/paint/`. Il comando aggiunge il JPEG accanto a ogni AVIF, copia il risultato in `web/tiles/centro-storico/` e rifiuta uno schema o una piramide sopra i 50 MB. La cartella va poi committata.
 
 ## 1. Bucket Cloudflare R2
+
+Questa sezione non è il percorso in uso. Resta per quando le tile usciranno dal repository.
 
 1. Entra nel pannello Cloudflare, sezione R2, e crea un bucket nuovo. Il nome lo scegli tu: non riusare i bucket di Mondo Isometrico o di isometricworld.
 2. In **Settings** del bucket attiva l'accesso pubblico in lettura. Due strade equivalenti per il viewer:

@@ -1,13 +1,24 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import sharp from "sharp";
 import { fileURLToPath } from "node:url";
 import { CREDITI } from "./crediti.mjs";
 import { ErrorePrevisto } from "./overpass.mjs";
-import { costruisci } from "../../scripts/build-web.mjs";
+import { completaSito, costruisci, normalizzaBasePath } from "../../scripts/build-web.mjs";
+import {
+  LIMITE_BYTE,
+  REL_VERSIONE,
+  aggiornaDaData,
+  bytePiramide,
+  controllaLimite,
+  preparaPiramide,
+  verificaPng1024,
+} from "../../scripts/tile-sito.mjs";
 import {
   analizza,
   confrontaEdifici,
@@ -43,7 +54,7 @@ function piramide(root) {
 }
 
 test("la base delle tile è vuota in locale e punta all'URL in produzione", () => {
-  assert.equal(urlRisorsa("/data/world.json", ""), "/data/world.json");
+  assert.equal(urlRisorsa("/data/world.json", ""), "data/world.json");
   assert.equal(
     urlRisorsa("/tiles/photo/8/0/-4.avif?v=abc", "https://tiles.example/subiaco/"),
     "https://tiles.example/subiaco/tiles/photo/8/0/-4.avif?v=abc",
@@ -364,4 +375,121 @@ test("vercel, il workflow e .env.example non contengono segreti né un cron atti
   assert.match(html, /Open-Meteo/);
   assert.match(html, /dom_gag_96/);
   assert.match(html, /isometricworld/);
+  assert.match(html, /href="stile.css"/);
+  assert.match(html, /src="app.js"/);
+});
+
+test("GitHub Pages usa il base path, percorsi relativi e la piramide sotto i 50 MB", async () => {
+  assert.equal(normalizzaBasePath("/subiaco-isometrica/"), "/subiaco-isometrica");
+  assert.equal(normalizzaBasePath(""), "");
+  assert.throws(() => normalizzaBasePath("https://evil.example"), /BASE_PATH/);
+  assert.throws(() => normalizzaBasePath("/../segreto"), /BASE_PATH/);
+  const out = await mkdtemp(path.join(tmpdir(), "subiaco-pages-"));
+  try {
+    const fatto = await completaSito({
+      env: { TILES_PUBLIC_URL: "", BASE_PATH: "/subiaco-isometrica" },
+      basePath: "/subiaco-isometrica",
+      out,
+    });
+    assert.equal(fatto.url, "");
+    assert.equal(fatto.basePath, "/subiaco-isometrica");
+    assert.equal(fatto.piramide.fonte, "versionata");
+    assert.ok(fatto.piramide.byte > 0 && fatto.piramide.byte < LIMITE_BYTE);
+    const html = readFileSync(path.join(out, "index.html"), "utf8");
+    assert.equal(readFileSync(path.join(out, "404.html"), "utf8"), html);
+    assert.match(html, /<base href="\/subiaco-isometrica\/">/);
+    assert.match(html, /href="stile.css"/);
+    assert.match(html, /src="app.js"/);
+    assert.equal(html.includes('src="/app.js"'), false);
+    const js = readFileSync(path.join(out, "app.js"), "utf8");
+    assert.match(js, /__TILES_PUBLIC_URL__ = ""/);
+    const world = JSON.parse(readFileSync(path.join(out, "data", "world.json"), "utf8"));
+    assert.equal(world.demo, true);
+    assert.equal(world.area, "centro-storico");
+    assert.equal(world.dipinte, false);
+    const indice = JSON.parse(readFileSync(path.join(out, "data", "tiles-photo.json"), "utf8"));
+    let coppie = 0;
+    for (const [z, livello] of Object.entries(indice)) {
+      for (const chiave of Object.keys(livello)) {
+        const [x, y] = chiave.split("_");
+        assert.equal(existsSync(path.join(out, "tiles", "photo", z, x, `${y}.avif`)), true);
+        assert.equal(existsSync(path.join(out, "tiles", "photo", z, x, `${y}.jpg`)), true);
+        coppie += 1;
+      }
+    }
+    assert.ok(coppie > 0);
+    assert.ok(bytePiramide(path.join(ROOT, REL_VERSIONE)) < LIMITE_BYTE);
+  } finally {
+    await rm(out, { recursive: true, force: true });
+  }
+});
+
+test("le PNG dipinte da 1024 px diventano una piramide AVIF e JPEG", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "subiaco-png-"));
+  try {
+    const dir = path.join(root, "tiles", "dipinte", "centro-storico");
+    mkdirSync(dir, { recursive: true });
+    await sharp({ create: { width: 16, height: 16, channels: 3, background: "#888" } }).png().toFile(path.join(dir, "0_0.png"));
+    await assert.rejects(() => verificaPng1024(dir, ["0_0.png"]), /1024/);
+    await sharp({ create: { width: 1024, height: 1024, channels: 3, background: "#c45" } }).png().toFile(path.join(dir, "0_0.png"));
+    const dest = path.join(root, "piramide");
+    const fatto = await preparaPiramide({ root, destDipinte: dest });
+    assert.equal(fatto.fonte, "dipinte");
+    assert.ok(fatto.byte < LIMITE_BYTE);
+    const world = JSON.parse(readFileSync(path.join(dest, "data", "world.json"), "utf8"));
+    assert.equal(world.dipinte, true);
+    const avif = path.join(dest, "tiles", "photo", "8", "0", "0.avif");
+    assert.equal(existsSync(avif), true);
+    assert.equal(existsSync(avif.replace(/\.avif$/, ".jpg")), true);
+    assert.throws(() => controllaLimite(LIMITE_BYTE + 1), /50 MB/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("aggiorna-tile rifiuta lo schema e aggiunge il JPEG", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "subiaco-agg-"));
+  try {
+    const src = path.join(root, "src");
+    mkdirSync(path.join(src, "data"), { recursive: true });
+    mkdirSync(path.join(src, "tiles", "photo", "2", "0"), { recursive: true });
+    writeFileSync(path.join(src, "data", "world.json"), JSON.stringify({ demo: true }));
+    writeFileSync(path.join(src, "data", "tiles-photo.json"), "{}");
+    await assert.rejects(() => aggiornaDaData({ src, dest: path.join(root, "out") }), /schema/);
+    writeFileSync(path.join(src, "data", "world.json"), JSON.stringify({ demo: false, dipinte: false }));
+    const avif = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#123" } }).avif().toBuffer();
+    writeFileSync(path.join(src, "tiles", "photo", "2", "0", "0.avif"), avif);
+    const esito = await aggiornaDaData({ src, dest: path.join(root, "out") });
+    assert.equal(existsSync(path.join(esito.dest, "tiles", "photo", "2", "0", "0.jpg")), true);
+    assert.ok(esito.byte < LIMITE_BYTE);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("il workflow delle Pagine non ha segreti e pubblica web/dist", () => {
+  const yml = readFileSync(path.join(ROOT, ".github/workflows/pages.yml"), "utf8");
+  assert.match(yml, /workflow_dispatch:/);
+  assert.match(yml, /branches:\n\s+- main/);
+  assert.match(yml, /pages: write/);
+  assert.match(yml, /id-token: write/);
+  assert.match(yml, /contents: read/);
+  assert.match(yml, /actions\/configure-pages@v5/);
+  assert.match(yml, /actions\/setup-node@v4/);
+  assert.match(yml, /node-version: 24/);
+  assert.match(yml, /npm ci/);
+  assert.match(yml, /npm run build/);
+  assert.match(yml, /actions\/upload-pages-artifact@v3/);
+  assert.match(yml, /path: web\/dist/);
+  assert.match(yml, /actions\/deploy-pages@v4/);
+  assert.match(yml, /TILES_PUBLIC_URL: ""/);
+  assert.equal(yml.includes("secrets."), false);
+  assert.equal(yml.includes("R2_"), false);
+  assert.equal(yml.includes("PAINT_API"), false);
+  const ignora = spawnSync("git", ["check-ignore", "-q", "tiles/altro.png"], { cwd: ROOT });
+  assert.equal(ignora.status, 0);
+  const tieni = spawnSync("git", ["check-ignore", "-q", "tiles/dipinte/centro-storico/README.md"], { cwd: ROOT });
+  assert.equal(tieni.status, 1);
+  const web = spawnSync("git", ["check-ignore", "-q", "web/tiles/centro-storico/data/world.json"], { cwd: ROOT });
+  assert.equal(web.status, 1);
 });

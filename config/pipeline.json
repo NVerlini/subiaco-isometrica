@@ -97,9 +97,9 @@
   },
   "deploy": {
     "quando": "FASE 5",
-    "tile": "Cloudflare R2. Credenziali solo in .env (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, TILES_PUBLIC_URL).",
-    "sito": "Vercel, output web/dist. npm run deploy non contatta il servizio.",
-    "comandi": ["npm run export", "npm run publish:tiles", "npm run build"],
-    "ordine": "export scrive la cache, publish:tiles carica R2, Vercel pubblica il sito dal repository. Il Worker Cloudflare del riferimento è solo un backup e non fa parte di questo setup. Vedi docs/fase5-pubblicazione.md."
+    "tile": "Con GitHub Pages la piramide del centro storico è in web/tiles/centro-storico/ (AVIF e JPEG) e parte con il sito. TILES_PUBLIC_URL vuoto: stessa origine. R2 resta disponibile, credenziali solo in .env.",
+    "sito": "GitHub Pages. Workflow .github/workflows/pages.yml, output web/dist. Chi pubblica imposta Settings → Pages → Source: GitHub Actions. Vercel resta in vercel.json.",
+    "comandi": ["npm run build", "npm run export", "npm run publish:tiles"],
+    "ordine": "npm run build prepara web/dist con il base path e la piramide leggera. Il workflow la pubblica. publish:tiles e Vercel non sono il percorso in uso. Vedi docs/fase5-pubblicazione.md."
   }
 }
