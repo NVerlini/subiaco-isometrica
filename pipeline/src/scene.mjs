@@ -216,6 +216,15 @@ function scenaArea(area, config, pipeline, altezze) {
     }
   }
 
+  const integrazione = integraVolumiOrfani(volumi2014, volumi2020, edifici, quadro);
+  for (const ed of integrazione.edifici) {
+    const centro = centroide(ed.anello);
+    const [ce, cn] = quadro.piano(centro[0], centro[1]);
+    const suoloM = dtm(ce, cn);
+    ed.suoloM = suoloM == null ? null : Math.round(suoloM * 10) / 10;
+    edifici.push(ed);
+  }
+
   const strade = [];
   const piste = [];
   const impianti = [];
@@ -332,8 +341,11 @@ function scenaArea(area, config, pipeline, altezze) {
 
   const occupato = new Uint8Array(nx * ny);
   for (const ed of edifici) {
-    const piano = ed.anello.map(([lon, lat]) => quadro.piano(lon, lat));
-    marcaPoligono(occupato, nx, ny, x0, y0, passoM, piano);
+    const parti = ed.parti?.length ? ed.parti : [{ anello: ed.anello }];
+    for (const parte of parti) {
+      const piano = parte.anello.map(([lon, lat]) => quadro.piano(lon, lat));
+      marcaPoligono(occupato, nx, ny, x0, y0, passoM, piano);
+    }
   }
   for (const strada of strade) {
     if (["footway", "path", "steps", "cycleway"].includes(strada.classe)) continue;
@@ -405,6 +417,8 @@ function scenaArea(area, config, pipeline, altezze) {
     corpoM: ed.altezzaM,
   })));
   const da2020 = edifici.filter((ed) => ed.fonteVolume === "dbgt-2020").length;
+  const dbgt2014 = edifici.filter((ed) => ed.fonte === "dbgt-2014").length;
+  const dbgt2020 = edifici.filter((ed) => ed.fonte === "dbgt-2020").length;
 
   const landmark = config.landmark.map((lm) => {
     const disegnato = edifici.find((ed) => ed.landmark === lm.id) ?? ponti.find((p) => p.landmark === lm.id);
@@ -432,7 +446,9 @@ function scenaArea(area, config, pipeline, altezze) {
     generato: new Date().toISOString(),
     attribuzioni: [
       "© contributori OpenStreetMap, ODbL",
-      "© Regione Lazio, DBGT 2014 elemento di copertura, CC BY 4.0",
+      "© Regione Lazio, DBGT, CC BY 4.0",
+      "Copernicus Sentinel-2, CC BY 4.0, via Geoportale Regione Lazio",
+      "Ortofoto AGEA 2023, CC BY 4.0, via Geoportale Regione Lazio",
       "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium",
       "Copernicus DEM GLO-30 © DLR e Airbus, programma Copernicus dell'Unione Europea",
     ],
@@ -446,6 +462,13 @@ function scenaArea(area, config, pipeline, altezze) {
       altezze: fonti,
       torri: torri.length,
       volumi2020: da2020,
+      edificiOsm: edifici.length - dbgt2014 - dbgt2020,
+      edificiDbgt: dbgt2014 + dbgt2020,
+      edificiDbgt2014: dbgt2014,
+      edificiDbgt2020: dbgt2020,
+      volumiOrfani: integrazione.orfani,
+      volumiScartatiPiccoli: integrazione.scartatiPiccoli,
+      sogliaVolumiOrfani: SOGLIA_VOLUMI_ORFANI,
       strade: strade.length,
       alberiOsm: alberi.filter((a) => a.fonte === "osm" || a.fonte === "default").length,
       alberiWorldcover: forestali,
@@ -568,6 +591,9 @@ function scenaArea(area, config, pipeline, altezze) {
   });
 
   const avvisi = avvisiGeometria({ edifici });
+  avvisi.volumiOrfani = integrazione.orfani;
+  avvisi.sogliaVolumiOrfani = SOGLIA_VOLUMI_ORFANI;
+  avvisi.avvisoVolumiOrfani = avvisoVolumiOrfani(integrazione.orfani);
   const report = {
     area: area.id,
     conteggi: documento.conteggi,
@@ -583,7 +609,8 @@ function scenaArea(area, config, pipeline, altezze) {
   };
   writeFileSync(path.join(out, "report.json"), JSON.stringify(report, null, 2));
   for (const riga of testoAvvisi(avvisi)) console.log(`  ${riga}`);
-  console.log(`  edifici ${edifici.length} (CTR unità ${fonti["ctr-unita"]}, di cui DBGT 2020 ${da2020}, gronda ${fonti["ctr-gronda"]}, livelli ${fonti["building:levels"]}, default ${fonti["default-tipologia"]})`);
+  console.log(`  edifici ${edifici.length} (OSM ${documento.conteggi.edificiOsm}, DBGT ${dbgt2014 + dbgt2020} di cui 2014 ${dbgt2014} e 2020 ${dbgt2020}; CTR unità ${fonti["ctr-unita"]}, gronda ${fonti["ctr-gronda"]}, livelli ${fonti["building:levels"]}, default ${fonti["default-tipologia"]})`);
+  console.log(`  volumi DBGT orfani ${integrazione.orfani}, scartati sotto 12 m² ${integrazione.scartatiPiccoli}`);
   console.log(`  torri staccate dal corpo: ${torri.length}`);
   for (const torre of torri) console.log(`    ${torre.nome ?? torre.id}: corpo ${torre.corpoM} m, torre ${torre.altezzaM} m`);
   console.log(`  alberi OSM ${documento.conteggi.alberiOsm}, WorldCover ${forestali}, strade ${strade.length}`);
@@ -908,6 +935,147 @@ function leggiFloat32(file) {
 function leggiByte(file) {
   const buf = readFileSync(file);
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+}
+
+/** Distanza entro cui un volume DBGT resta altezza di un edificio OSM e non diventa un corpo nuovo. */
+export const DISTANZA_OSM_M = 8;
+/** Stessa soglia di superficie delle impronte OSM. */
+export const AREA_MIN_VOLUME_M2 = 12;
+/** Due volumi dello stesso rilievo si uniscono se le piante distano al massimo così. */
+export const ADIACENZA_VOLUME_M = 1.5;
+/** Sopra questo numero di volumi orfani il report avvisa: la copertura OSM non basta. */
+export const SOGLIA_VOLUMI_ORFANI = 50;
+
+export function avvisoVolumiOrfani(orfani, soglia = SOGLIA_VOLUMI_ORFANI) {
+  if (!(orfani > soglia)) return null;
+  return `attenzione: ${orfani} volumi DBGT a più di ${DISTANZA_OSM_M} m da un edificio OSM (soglia ${soglia}). Entrano in scena come edifici dbgt-2014 o dbgt-2020.`;
+}
+
+function pianoDi(anello, quadro) {
+  return anello.map(([lon, lat]) => quadro.piano(lon, lat));
+}
+
+function distanzaDaEdifici(vol, edifici, quadro) {
+  if (edifici.some((ed) => nelPoligono(vol.centro, ed.anello))) return 0;
+  const [e, n] = quadro.piano(vol.centro[0], vol.centro[1]);
+  let minima = Infinity;
+  for (const ed of edifici) {
+    const anelli = ed.parti?.length ? ed.parti.map((p) => p.anello) : [ed.anello];
+    for (const anello of anelli) {
+      if (nelPoligono(vol.centro, anello)) return 0;
+      minima = Math.min(minima, distanzaAnello([e, n], pianoDi(anello, quadro)));
+    }
+  }
+  return minima;
+}
+
+function areaVolume(vol, quadro) {
+  if (Number.isFinite(vol.areaM2)) return vol.areaM2;
+  if (!vol.anello) return 0;
+  return areaM2(vol.anello, quadro.piano);
+}
+
+function pianteVicine(a, b, adiacenzaM) {
+  for (const p of a) {
+    if (distanzaAnello(p, b) <= adiacenzaM) return true;
+  }
+  for (const p of b) {
+    if (distanzaAnello(p, a) <= adiacenzaM) return true;
+  }
+  return false;
+}
+
+export function raggruppaVolumi(volumi, quadro, adiacenzaM = ADIACENZA_VOLUME_M) {
+  const n = volumi.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const trova = (i) => {
+    let x = i;
+    while (parent[x] !== x) x = parent[x];
+    parent[i] = x;
+    return x;
+  };
+  const piani = volumi.map((vol) => pianoDi(vol.anello, quadro));
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (pianteVicine(piani[i], piani[j], adiacenzaM)) parent[trova(i)] = trova(j);
+    }
+  }
+  const gruppi = new Map();
+  for (let i = 0; i < n; i++) {
+    const radice = trova(i);
+    if (!gruppi.has(radice)) gruppi.set(radice, []);
+    gruppi.get(radice).push(volumi[i]);
+  }
+  return [...gruppi.values()];
+}
+
+function edificioDbgt(gruppo, fonte, indice) {
+  const principale = gruppo.reduce((a, b) => ((b.areaM2 ?? 0) > (a.areaM2 ?? 0) ? b : a));
+  const parti = gruppo.map((vol) => ({
+    ruolo: "corpo",
+    anello: vol.anello,
+    buchi: [],
+    altezzaM: Math.round(vol.h * 10) / 10,
+    fonteAltezza: "ctr-unita",
+    fonteVolume: fonte,
+    areaM2: vol.areaM2 ?? null,
+  }));
+  return {
+    id: `${fonte}:${indice}`,
+    nome: null,
+    landmark: null,
+    tipologia: "dbgt",
+    anello: principale.anello,
+    buchi: [],
+    superficieM2: gruppo.reduce((s, vol) => s + (vol.areaM2 ?? 0), 0),
+    suoloM: null,
+    altezzaM: Math.round(Math.max(...gruppo.map((vol) => vol.h)) * 10) / 10,
+    fonteAltezza: "ctr-unita",
+    fonteVolume: fonte,
+    fonte,
+    aggancio: gruppo.length > 1 ? "agglomerato" : "orfano",
+    parti,
+    quotaGrondaM: null,
+    quotaColmoM: null,
+    livelli: null,
+  };
+}
+
+function selezionaOrfani(volumi, edifici, quadro) {
+  const orfani = [];
+  let scartatiPiccoli = 0;
+  for (const vol of volumi) {
+    if (!vol?.centro || !vol?.anello || !(vol.h > 0)) continue;
+    const area = areaVolume(vol, quadro);
+    if (area < AREA_MIN_VOLUME_M2) {
+      scartatiPiccoli += 1;
+      continue;
+    }
+    if (distanzaDaEdifici(vol, edifici, quadro) <= DISTANZA_OSM_M) continue;
+    orfani.push({ ...vol, areaM2: vol.areaM2 ?? Math.round(area) });
+  }
+  return { orfani, scartatiPiccoli };
+}
+
+/**
+ * Edifici OSM già tenuti conservano la pianta. I volumi UN_VOL il cui centroide
+ * sta a più di 8 m da quelle piante diventano edifici, con l'altezza UN_VOL_AV.
+ * Il 2020 riempie solo ciò che il 2014 non ha già coperto.
+ */
+export function integraVolumiOrfani(volumi2014, volumi2020, edificiOsm, quadro) {
+  const prima = selezionaOrfani(volumi2014, edificiOsm, quadro);
+  const gruppi2014 = raggruppaVolumi(prima.orfani, quadro);
+  const edifici2014 = gruppi2014.map((gruppo, i) => edificioDbgt(gruppo, "dbgt-2014", i + 1));
+  const dopo = selezionaOrfani(volumi2020, edificiOsm.concat(edifici2014), quadro);
+  const gruppi2020 = raggruppaVolumi(dopo.orfani, quadro);
+  const edifici2020 = gruppi2020.map((gruppo, i) => edificioDbgt(gruppo, "dbgt-2020", i + 1));
+  const orfani = prima.orfani.length + dopo.orfani.length;
+  return {
+    edifici: edifici2014.concat(edifici2020),
+    orfani,
+    scartatiPiccoli: prima.scartatiPiccoli + dopo.scartatiPiccoli,
+    avviso: avvisoVolumiOrfani(orfani),
+  };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -52,7 +52,7 @@ npm run check:osm
 | `npm run fetch` | Scarica OSM, CTR e (se mancano) DEM e WorldCover. Cache in `data/raw/`. |
 | `npm run ground` | Suolo, acqua e classi WorldCover in `data/derived/<area>/ground/`. |
 | `npm run scene` | Edifici, strade, landmark, alberi, GLB e anteprime PNG. |
-| `npm run render` | Tile isometriche 1024 px del centro storico, più il mosaico. Vedi [docs/fase2-render.md](docs/fase2-render.md). |
+| `npm run render` | Tutte le tile del centro abitato (bbox di lavoro, circa 76). Vedi [docs/fase2-render.md](docs/fase2-render.md). |
 | `npm run render -- centro-storico --finestra rocca-ponte` | Solo le tile intorno alla Rocca e al Ponte San Francesco. |
 | `npm run paint` | Finestre da 1024 px sulle tile di render, fusione, piramide dalle tile dipinte. Vedi [docs/fase3-painting.md](docs/fase3-painting.md). |
 | `npm run paint -- --anteprima-stile` | Riscrive le JPEG di stile in `docs/` con il provider mock, senza le tile del borgo. |

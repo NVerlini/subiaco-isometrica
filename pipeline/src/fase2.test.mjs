@@ -63,7 +63,9 @@ test("la codifica a 3 cm copre fondovalle e cresta", () => {
 
 test("le tile del centro storico non sono vuote", () => {
   const quadro = quadroProva(pipeline.regione.headingDeg);
-  const [s, w, n, e] = [41.922, 13.0845, 41.93, 13.105];
+  const aree = JSON.parse(readFileSync(path.join(ROOT, "config/areas.json"), "utf8"));
+  const [s, w, n, e] = aree.aree.find((a) => a.id === "centro-storico").bbox;
+  assert.deepEqual([s, w, n, e], [41.918, 13.08, 41.932, 13.115]);
   const punti = [];
   for (const q of [365.5, 538.8]) {
     for (const [lon, lat] of [[w, s], [e, s], [e, n], [w, n]]) {
@@ -73,8 +75,7 @@ test("le tile del centro storico non sono vuote", () => {
     }
   }
   const tiles = tileCoperte(punti);
-  assert.ok(tiles.length >= 4, `solo ${tiles.length} tile`);
-  assert.ok(tiles.length < 80, `troppe tile: ${tiles.length}`);
+  assert.equal(tiles.length, 76);
 });
 
 test("il volume alto e stretto diventa una torre, il corpo no", () => {

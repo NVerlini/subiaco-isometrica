@@ -22,6 +22,7 @@ Il piè di pagina di `web/public/index.html` cita, con link, le stesse fonti di 
 
 - © contributori OpenStreetMap (ODbL)
 - © Regione Lazio, DBGT (CC BY 4.0)
+- Copernicus Sentinel-2 e ortofoto AGEA 2023, via Geoportale Regione Lazio (CC BY 4.0)
 - Copernicus DEM
 - © ESA WorldCover (CC BY 4.0), con la citazione Sentinel nel titolo del link
 - Meteo: Open-Meteo (CC BY 4.0)
@@ -37,7 +38,10 @@ La stessa lista, in forma breve, è `pipeline/src/crediti.mjs` e finisce in `wor
   Altezze dal foglio DBGT 2014 `DBT_Lazio_RM376`, classe unità volumetriche, campo `UN_VOL_AV`.
   Integrazione dal DBGT 2020 del comune (`2020_DBGT_5K_SHP/Subiaco.zip`), stessa classe `UN_VOL`: il campo data è 20140101, quindi non è un rilievo più recente del foglio.
   Integrazione parziale dal WFS `geonode:web_020104_ele_cp_a` (elemento di copertura, quote 3D).
+  I volumi UN_VOL il cui centroide sta a più di 8 m da un edificio OSM già tenuto entrano in scena con la propria pianta. Sotto i 12 m² si scartano.
   La CTRN raster 1:5 000 non contiene le altezze degli edifici.
+- **Copernicus Sentinel-2** e **ortofoto AGEA 2023**: distribuite dal Geoportale della Regione Lazio, licenza CC BY 4.0. https://geoportale.regione.lazio.it/
+  Servono alla pittura. Non sono ancora scaricate dalla pipeline.
 - **ESA WorldCover**: © ESA WorldCover project 2021, licenza CC BY 4.0. Prodotto 10 m 2021 v200, doi:10.5281/zenodo.7254221.
   Citazione richiesta: «© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium».
 - **Copernicus DEM**: Copernicus DEM GLO-30 Public, © DLR e/o Airbus, fornito nell'ambito del programma Copernicus dell'Unione Europea.
