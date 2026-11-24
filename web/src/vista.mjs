@@ -241,8 +241,14 @@ export function baseTile(valore = globalThis.__TILES_PUBLIC_URL__) {
   return normalizzaBaseTile(typeof valore === "string" ? valore : "");
 }
 
-/** Percorso assoluto del viewer, preceduto dalla base solo se c'è. */
+/**
+ * Percorso della risorsa. Con TILES_PUBLIC_URL vuoto è relativo
+ * (stessa origine: in locale la radice del dev server, su Pages il base path).
+ * Con un URL https resta assoluto, per un bucket esterno.
+ */
 export function urlRisorsa(percorso, base = baseTile()) {
   if (!String(percorso).startsWith("/")) throw new Error(`Percorso non assoluto: ${percorso}`);
-  return `${normalizzaBaseTile(base)}${percorso}`;
+  const radice = normalizzaBaseTile(base);
+  if (!radice) return percorso.slice(1);
+  return `${radice}${percorso}`;
 }

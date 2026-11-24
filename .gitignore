@@ -158,10 +158,16 @@ vite.config.ts.timestamp-*
 
 # Dati scaricati, cache e prodotti della pipeline (non versionare).
 # data/derived e data/web-state sono il lavoro di render e pittura: restano locali.
-# Le tile pubblicate stanno su R2, non in web/public/regions.
+# Le tile di lavoro stanno in data/. Quelle di GitHub Pages sono in web/tiles/
+# (la regola data/ vale in ogni cartella: si riammette solo questa piramide).
+# tiles/dipinte/ è l'ingresso delle PNG da 1024 px (nomi delle tile di render).
 data/
 cache/
-tiles/
+tiles/*
+!tiles/dipinte/
+!tiles/dipinte/**
+!web/tiles/
+!web/tiles/**
 output/
 web/public/regions/
 web/dist/

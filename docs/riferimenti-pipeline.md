@@ -89,7 +89,7 @@ Ordine del riferimento, da tenere:
 
 1. `export` costruisce la piramide (zoom 8 → 2) in `data/web/regions/subiaco/`. Le URL delle tile portano l'hash (`?v=`) e si possono tenere in cache un anno. `world.json` si riscrive sul posto e ha una cache corta.
 2. `publish:tiles` carica quella cartella su R2 (API S3). Salta i file il cui SHA-256 è già nel manifest locale. Non svuota `data/web/`: la cache resta, il manifest evita il secondo invio. Non copia l'account id né il nome dei bucket scritti in `HOSTING.md` del riferimento.
-3. Il sito è Vercel, output `web/dist`, config in `vercel.json`. `npm run deploy` non chiama Vercel: il collegamento del repository lo fa chi ha l'account. Le tile non fanno parte del deploy. Il viewer di produzione legge `TILES_PUBLIC_URL`; `npm run dev` legge `data/`.
+3. Il sito in uso è GitHub Pages (`web/dist`, workflow `.github/workflows/pages.yml`). `TILES_PUBLIC_URL` vuoto: le tile del centro storico partono con il sito, da `web/tiles/centro-storico/`. `npm run dev` legge `data/`. Vercel (`vercel.json`) e R2 (`publish:tiles`) restano descritti e non sono il percorso attuale. `npm run deploy` non chiama alcun servizio.
 
 `data/derived/` (render e pitture) e `data/web-state/` non si cancellano: sono ore di lavoro. `data/web/` è la coda di upload e resta in locale.
 

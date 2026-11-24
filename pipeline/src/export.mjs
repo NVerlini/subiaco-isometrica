@@ -37,11 +37,11 @@ export function cartellaSorgente(areaId, dipinte = false) {
   return path.join(DERIVED, areaId, dipinte ? "paint" : "render");
 }
 
-function elencoRender(areaId, dipinte = false) {
-  const dir = cartellaSorgente(areaId, dipinte);
+function elencoRender(areaId, dipinte = false, cartella) {
+  const dir = cartella ?? cartellaSorgente(areaId, dipinte);
   if (!existsSync(dir)) {
     throw new ErrorePrevisto(dipinte
-      ? `Manca ${dir}. Esegui prima npm run paint.`
+      ? `Manca ${dir}. Esegui prima npm run paint, oppure metti le PNG in tiles/dipinte/centro-storico/.`
       : `Manca ${dir}. Esegui prima npm run render.`);
   }
   const tiles = [];
@@ -66,8 +66,9 @@ async function scriviAvif(img, file) {
 
 export async function esportaArea(area, pipeline, opt = {}) {
   const dipinte = Boolean(opt.dipinte);
-  const tiles = elencoRender(area.id, dipinte);
-  const out = path.join(DATA, "web", "regions", pipeline.regione.id);
+  const cartella = opt.cartella ?? cartellaSorgente(area.id, dipinte);
+  const tiles = elencoRender(area.id, dipinte, cartella);
+  const out = opt.out ?? path.join(DATA, "web", "regions", pipeline.regione.id);
   const photo = path.join(out, "tiles", "photo");
   rmSync(photo, { recursive: true, force: true });
   const indice = {};
@@ -84,7 +85,7 @@ export async function esportaArea(area, pipeline, opt = {}) {
     y0 = Math.min(y0, ty * STILE.tile);
     x1 = Math.max(x1, (tx + 1) * STILE.tile);
     y1 = Math.max(y1, (ty + 1) * STILE.tile);
-    const sorgente = path.join(cartellaSorgente(area.id, dipinte), `${tx}_${ty}.png`);
+    const sorgente = path.join(cartella, `${tx}_${ty}.png`);
     for (let j = 0; j < SPLIT; j++) {
       for (let i = 0; i < SPLIT; i++) {
         const x = tx * SPLIT + i;

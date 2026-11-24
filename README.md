@@ -4,7 +4,9 @@ Mappa isometrica interattiva di **Subiaco (RM)** e **Monte Livata**, costruita d
 
 Ispirata a [Mondo Isometrico](https://github.com/dg996/mondoisometrico) a sua volta basato su [isometricworld](https://github.com/krasun/isometricworld).
 
-> FASE 5: pubblicazione preparata (Vercel e R2) senza deploy. Il viewer, in locale, legge ancora le tile da `data/`.
+> FASE 5: il sito è GitHub Pages, [nverlini.github.io/subiaco-isometrica](https://nverlini.github.io/subiaco-isometrica/). In locale il viewer legge ancora le tile da `data/`.
+
+Per vederlo online: nel repository, **Settings → Pages → Source: GitHub Actions**. Non servono token. Il dettaglio è in [docs/fase5-pubblicazione.md](docs/fase5-pubblicazione.md).
 
 ## Cosa sarà
 - Il centro storico di Subiaco, la Rocca Abbaziale, il Ponte San Francesco e il fiume Aniene
@@ -57,14 +59,14 @@ npm run check:osm
 | `npm run export` | Piramide AVIF zoom 8 → 2, tile web da 512 px, dal render geometrico. Non pubblica. |
 | `npm run export -- --dipinte` | La stessa piramide, letta da `data/derived/<area>/paint/`. |
 | `npm run dev` | Viewer su `http://127.0.0.1:4321/`. Piramide in `data/web` se c'è, altrimenti uno schema leggero. Non usa `TILES_PUBLIC_URL`. Vedi [docs/fase4-viewer.md](docs/fase4-viewer.md). |
-| `npm run build` | Viewer statico in `web/dist`. Se `TILES_PUBLIC_URL` è nel `.env`, il bundle la incorpora. |
+| `npm run build` | Viewer statico in `web/dist`, con la piramide del centro storico. `TILES_PUBLIC_URL` vuoto: tile sulla stessa origine. `BASE_PATH` serve a GitHub Pages (`/subiaco-isometrica`). |
 | `npm run publish:tiles -- --dry-run` | Elenca le tile da caricare su R2. Non apre connessioni, anche senza credenziali. |
 | `npm run publish:tiles` | Carica `data/web/regions/subiaco/` sul bucket. Senza le variabili R2 in `.env` si ferma. Non pubblica il sito. |
 | `npm run publish` | Stesso upload di `publish:tiles`. |
-| `npm run deploy` | Non contatta Vercel. Ricorda i passi di [docs/fase5-pubblicazione.md](docs/fase5-pubblicazione.md). |
+| `npm run deploy` | Non pubblica. Ricorda di impostare GitHub Pages su **Source: GitHub Actions**. Vedi [docs/fase5-pubblicazione.md](docs/fase5-pubblicazione.md). |
 | `npm run osm:diff` | Confronta gli edifici scaricati con `config/osm-baseline.json` e segnala i landmark assenti. Non pubblica. |
 
-Senza argomenti `fetch`, `ground`, `scene`, `render`, `paint` ed `export` usano `centro-storico`. Un'altra area si passa come argomento (`npm run scene -- monte-livata`); `--all` esegue le tre finestre su fetch, ground e scene. I dati scaricati, le tile e la piramide restano in `data/` e non vanno committati. `paint` non chiama un'API se `PAINT_API_KEY` è vuota: usa il provider mock. `npm run dev` serve il viewer in locale e, se la piramide manca, genera solo uno schema in `data/`. Il meteo, a pagina aperta, chiama Open-Meteo senza chiave. `npm run publish:tiles` carica le tile su R2 solo se `.env` ha le variabili; altrimenti si ferma, e con `--dry-run` non contatta il bucket. `npm run deploy` non chiama Vercel. La pipeline prevista resta: fetch → ground → scene → render → paint → export → viewer → publish → deploy.
+Senza argomenti `fetch`, `ground`, `scene`, `render`, `paint` ed `export` usano `centro-storico`. Un'altra area si passa come argomento (`npm run scene -- monte-livata`); `--all` esegue le tre finestre su fetch, ground e scene. I dati scaricati e il render restano in `data/` e non vanno committati. Fa eccezione la piramide leggera del centro storico in `web/tiles/centro-storico/`, quella che GitHub Pages pubblica. `paint` non chiama un'API se `PAINT_API_KEY` è vuota: usa il provider mock. `npm run dev` serve il viewer in locale e, se la piramide manca, genera solo uno schema in `data/`. Il meteo, a pagina aperta, chiama Open-Meteo senza chiave. `npm run build` prepara `web/dist`: percorsi relativi, e se `TILES_PUBLIC_URL` è vuoto le tile sono sulla stessa origine. Le PNG da 1024 px in `tiles/dipinte/centro-storico/` sostituiscono lo schema. `npm run publish:tiles` carica le tile su R2 solo se `.env` ha le variabili; non è il percorso in uso. `npm run deploy` non chiama alcun servizio. La pipeline prevista resta: fetch → ground → scene → render → paint → export → viewer → publish → deploy.
 
 Non serve un fork di Mondo Isometrico né di isometricworld. I due progetti sono MIT: il codice si può adattare più avanti, file per file, tenendo la nota di copyright. Questo repository resta indipendente. Il perché è in [docs/riferimenti-pipeline.md](docs/riferimenti-pipeline.md).
 
@@ -73,13 +75,16 @@ Non serve un fork di Mondo Isometrico né di isometricworld. I due progetti sono
 - `config/pipeline.json` — camera a 45°, piramide di zoom, finestre di pittura, cache, regione con heading congelato
 - `config/paint.json` — prompt, tavolozza, soglia della faggeta, edifici e split da verificare
 - `scripts/check-osm.mjs` — verifica Overpass (`out count`, senza geometrie). Rifiuta `http://` e rispetta `Retry-After` sui 429
-- `scripts/fase.mjs` — avvia fetch, ground, scene, render, paint, export, dev e publish; deploy non contatta Vercel
-- `scripts/publish-tiles.mjs` — upload incrementale su R2
+- `scripts/fase.mjs` — avvia fetch, ground, scene, render, paint, export, dev e publish; deploy non contatta alcun servizio
+- `scripts/publish-tiles.mjs` — upload incrementale su R2, non usato da GitHub Pages
+- `tiles/dipinte/centro-storico/` — PNG future da 1024 px, con i nomi delle tile di render
+- `web/tiles/centro-storico/` — piramide AVIF e JPEG del centro storico, versionata
+- `.github/workflows/pages.yml` — pubblica `web/dist` su GitHub Pages
 - `.github/workflows/osm-aggiornamenti.yml` — controllo OSM manuale, senza pubblicazione
 - `pipeline/src` — fetch, suolo, scena, render, pittura, export, DEM, WorldCover, CTR
 - `pipeline/page` — pagina Three.js del render. `pipeline/style` resta vuoto: lo stile è il testo in `config/paint.json`
 - `config/altezze.json` — default di tipologia quando la CTR non ha un volume
-- `web/src`, `web/public` — viewer statico (pan, zoom, luoghi, meteo, giorno/notte). Le tile non stanno in `web/public`
+- `web/src`, `web/public` — viewer statico (pan, zoom, luoghi, meteo, giorno/notte). Le tile del sito stanno in `web/tiles/`, non in `web/public`
 
 ## Licenza
 Codice: [MIT](LICENSE). I dati restano soggetti alle licenze delle rispettive fonti: vedi [ATTRIBUTION.md](ATTRIBUTION.md).

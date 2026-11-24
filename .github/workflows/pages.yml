@@ -1,0 +1,65 @@
+# Pubblica il viewer su GitHub Pages.
+# Non scarica DBGT, DEM o WorldCover e non avvia Chromium:
+# npm run build copia la piramide leggera già nel repository
+# oppure, se ci sono PNG in tiles/dipinte/centro-storico/, la ricostruisce con sharp.
+# Nessun segreto.
+
+name: Pagine
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  pages: write
+  id-token: write
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Codice
+        uses: actions/checkout@v4
+
+      - name: Pagine
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Dipendenze
+        run: npm ci
+
+      - name: Build
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          TILES_PUBLIC_URL: ""
+        run: npm run build
+
+      - name: Artefatto
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Pubblica
+        id: deployment
+        uses: actions/deploy-pages@v4

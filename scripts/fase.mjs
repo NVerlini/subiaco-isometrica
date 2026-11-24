@@ -7,7 +7,8 @@
  * fetch, ground e scene sono la FASE 1. render ed export sono la FASE 2.
  * paint è la FASE 3. export --dipinte ricostruisce la piramide dalle tile dipinte.
  * dev è la FASE 4: viewer statico, con schema leggero se la piramide non c'è.
- * publish è la FASE 5: carica le tile su R2. deploy non contatta Vercel.
+ * publish è la FASE 5: carica le tile su R2. Il sito in uso è GitHub Pages
+ * (workflow pages.yml). deploy non contatta alcun servizio.
  */
 
 const STADI = {
@@ -54,7 +55,7 @@ const STADI = {
   deploy: {
     fase: 5,
     titolo: "Deploy del sito",
-    dettaglio: "Non contatta Vercel. Il sito si pubblica collegando il repository: vedi docs/fase5-pubblicazione.md. npm run build prepara web/dist.",
+    dettaglio: "Non contatta alcun servizio. Il sito è GitHub Pages: Settings → Pages → Source: GitHub Actions. Vedi docs/fase5-pubblicazione.md. npm run build prepara web/dist.",
   },
 };
 
@@ -78,10 +79,11 @@ if (nome === "fetch" || nome === "ground" || nome === "scene" || nome === "rende
   const modulo = await import("../scripts/publish-tiles.mjs");
   await modulo.esegui(process.argv.slice(3));
 } else if (nome === "deploy") {
-  console.log("deploy — FASE 5. Questo comando non contatta Vercel e non pubblica il sito.");
-  console.log("Collega il repository a un progetto Vercel (build: npm run build, output: web/dist)");
-  console.log("e imposta TILES_PUBLIC_URL. I passi sono in docs/fase5-pubblicazione.md.");
-  console.log("Le tile si caricano a parte, con npm run publish:tiles, sul bucket R2.");
+  console.log("deploy — FASE 5. Questo comando non pubblica il sito e non contatta alcun servizio.");
+  console.log("Su GitHub: Settings → Pages → Source: GitHub Actions.");
+  console.log("Il workflow .github/workflows/pages.yml esegue npm run build e pubblica web/dist.");
+  console.log("I passi sono in docs/fase5-pubblicazione.md.");
+  console.log("Vercel e l'upload R2 (npm run publish:tiles) restano disponibili, non sono il percorso in uso.");
 } else {
   console.log(`${nome} — FASE ${stadio.fase}, non ancora implementata.`);
   console.log(stadio.titolo + ".");

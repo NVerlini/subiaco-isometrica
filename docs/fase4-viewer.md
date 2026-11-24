@@ -59,6 +59,6 @@ In fondo alla pagina: contributori OpenStreetMap (ODbL), Regione Lazio DBGT (CC 
 ## Aperto
 
 - Il traffico e le animazioni della roadmap restano fuori.
-- In produzione le tile stanno su R2 (`TILES_PUBLIC_URL`, vedi `docs/fase5-pubblicazione.md`). In locale `npm run dev` le legge da `data/`.
+- In produzione le tile stanno sul sito (`TILES_PUBLIC_URL` vuoto, vedi `docs/fase5-pubblicazione.md`). In locale `npm run dev` le legge da `data/`.
 - Lo schema di demo arriva solo allo zoom 3. Con la piramide vera lo zoom nativo resta 8.
 - La quota della seggiovia non è una misura del DSM di progetto.
