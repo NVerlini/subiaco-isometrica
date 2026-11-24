@@ -266,24 +266,63 @@ export function bboxInterseca(anello, [s, w, n, e]) {
   return cy >= s && cy <= n && cx >= w && cx <= e;
 }
 
-export function centroide(anello) {
+function anelloAperto(anello) {
+  if (!anello?.length) return [];
+  const a = anello[0];
+  const b = anello[anello.length - 1];
+  if (anello.length > 1 && a[0] === b[0] && a[1] === b[1]) return anello.slice(0, -1);
+  return anello;
+}
+
+/**
+ * Baricentro shoelace in metri. Si sottrae il primo vertice prima dei prodotti,
+ * così una pianta di pochi metri non perde il centro per cancellazione.
+ */
+export function centroidePiano(punti) {
+  const base = anelloAperto(punti);
+  if (!base.length) return [0, 0];
+  if (base.length < 3) {
+    const n = base.length;
+    return [
+      base.reduce((t, p) => t + p[0], 0) / n,
+      base.reduce((t, p) => t + p[1], 0) / n,
+    ];
+  }
+  const x0 = base[0][0];
+  const y0 = base[0][1];
   let a = 0;
   let cx = 0;
   let cy = 0;
-  for (let i = 0; i < anello.length - 1; i++) {
-    const [x1, y1] = anello[i];
-    const [x2, y2] = anello[i + 1];
+  for (let i = 0; i < base.length; i++) {
+    const x1 = base[i][0] - x0;
+    const y1 = base[i][1] - y0;
+    const prossimo = base[(i + 1) % base.length];
+    const x2 = prossimo[0] - x0;
+    const y2 = prossimo[1] - y0;
     const c = x1 * y2 - x2 * y1;
     a += c;
     cx += (x1 + x2) * c;
     cy += (y1 + y2) * c;
   }
-  if (Math.abs(a) < 1e-18) {
-    const n = anello.length;
+  if (!(Math.abs(a) > 1e-8)) {
+    const n = base.length;
     return [
-      anello.reduce((t, p) => t + p[0], 0) / n,
-      anello.reduce((t, p) => t + p[1], 0) / n,
+      base.reduce((t, p) => t + p[0], 0) / n,
+      base.reduce((t, p) => t + p[1], 0) / n,
     ];
   }
-  return [cx / (3 * a), cy / (3 * a)];
+  return [x0 + cx / (3 * a), y0 + cy / (3 * a)];
+}
+
+/** Lon/lat. Il baricentro si calcola in metri locali, poi si riporta in gradi. */
+export function centroide(anello) {
+  const base = anelloAperto(anello);
+  if (!base.length) return [0, 0];
+  const [lon0, lat0] = base[0];
+  const cos = Math.cos((lat0 * Math.PI) / 180);
+  const metriLon = 111_320 * Math.max(0.2, cos);
+  const metriLat = 111_320;
+  const metri = base.map(([lon, lat]) => [(lon - lon0) * metriLon, (lat - lat0) * metriLat]);
+  const [x, y] = centroidePiano(metri);
+  return [lon0 + x / metriLon, lat0 + y / metriLat];
 }

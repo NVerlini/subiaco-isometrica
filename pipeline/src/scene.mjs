@@ -945,6 +945,8 @@ export const AREA_MIN_VOLUME_M2 = 12;
 export const ADIACENZA_VOLUME_M = 1.5;
 /** Sopra questo numero di volumi orfani il report avvisa: la copertura OSM non basta. */
 export const SOGLIA_VOLUMI_ORFANI = 50;
+/** Sopra questa frazione dell'area del volume la pianta è già coperta e non si duplica. */
+export const SOVRAPPOSIZIONE_MAX = 0.2;
 
 export function avvisoVolumiOrfani(orfani, soglia = SOGLIA_VOLUMI_ORFANI) {
   if (!(orfani > soglia)) return null;
@@ -1041,18 +1043,150 @@ function edificioDbgt(gruppo, fonte, indice) {
   };
 }
 
+function anelloAperto(anello) {
+  if (!anello?.length) return [];
+  const a = anello[0];
+  const b = anello[anello.length - 1];
+  if (anello.length > 1 && a[0] === b[0] && a[1] === b[1]) return anello.slice(0, -1);
+  return anello;
+}
+
+function areaSegnata(punti) {
+  const base = anelloAperto(punti);
+  let a = 0;
+  for (let i = 0; i < base.length; i++) {
+    const p = base[i];
+    const q = base[(i + 1) % base.length];
+    a += p[0] * q[1] - q[0] * p[1];
+  }
+  return a / 2;
+}
+
+function versoPositivo(punti) {
+  const base = anelloAperto(punti);
+  return areaSegnata(base) < 0 ? base.slice().reverse() : base;
+}
+
+function convesso(punti) {
+  let segno = 0;
+  const n = punti.length;
+  for (let i = 0; i < n; i++) {
+    const a = punti[i];
+    const b = punti[(i + 1) % n];
+    const c = punti[(i + 2) % n];
+    const z = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (Math.abs(z) < 1e-6) continue;
+    const s = Math.sign(z);
+    if (!segno) segno = s;
+    else if (s !== segno) return false;
+  }
+  return true;
+}
+
+function intersezioneLati(s, e, a, b) {
+  const dsx = e[0] - s[0];
+  const dsy = e[1] - s[1];
+  const dbx = b[0] - a[0];
+  const dby = b[1] - a[1];
+  const den = dsx * dby - dsy * dbx;
+  if (Math.abs(den) < 1e-12) return [(s[0] + e[0]) / 2, (s[1] + e[1]) / 2];
+  const t = ((a[0] - s[0]) * dby - (a[1] - s[1]) * dbx) / den;
+  return [s[0] + t * dsx, s[1] + t * dsy];
+}
+
+function tagliaConvesso(soggetto, clip) {
+  let output = soggetto;
+  for (let i = 0; i < clip.length; i++) {
+    if (!output.length) break;
+    const a = clip[i];
+    const b = clip[(i + 1) % clip.length];
+    const input = output;
+    output = [];
+    for (let j = 0; j < input.length; j++) {
+      const s = input[j];
+      const e = input[(j + 1) % input.length];
+      const sin = (b[0] - a[0]) * (s[1] - a[1]) - (b[1] - a[1]) * (s[0] - a[0]) >= -1e-8;
+      const ein = (b[0] - a[0]) * (e[1] - a[1]) - (b[1] - a[1]) * (e[0] - a[0]) >= -1e-8;
+      if (ein) {
+        if (!sin) output.push(intersezioneLati(s, e, a, b));
+        output.push(e);
+      } else if (sin) output.push(intersezioneLati(s, e, a, b));
+    }
+  }
+  return output;
+}
+
+function areaGriglia(a, b) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of a) {
+    minX = Math.min(minX, p[0]);
+    maxX = Math.max(maxX, p[0]);
+    minY = Math.min(minY, p[1]);
+    maxY = Math.max(maxY, p[1]);
+  }
+  const passo = Math.max(0.25, Math.max(maxX - minX, maxY - minY) / 40);
+  let dentro = 0;
+  let tot = 0;
+  for (let y = minY + passo / 2; y < maxY; y += passo) {
+    for (let x = minX + passo / 2; x < maxX; x += passo) {
+      if (!nelPoligono([x, y], a)) continue;
+      tot += 1;
+      if (nelPoligono([x, y], b)) dentro += 1;
+    }
+  }
+  if (!tot) return 0;
+  return (dentro / tot) * Math.abs(areaSegnata(a));
+}
+
+function areaIntersezione(soggetto, clip) {
+  const s = versoPositivo(soggetto);
+  const c = versoPositivo(clip);
+  if (s.length < 3 || c.length < 3) return 0;
+  if (convesso(c)) return Math.abs(areaSegnata(tagliaConvesso(s, c)));
+  if (convesso(s)) return Math.abs(areaSegnata(tagliaConvesso(c, s)));
+  return areaGriglia(s, c);
+}
+
+export function frazioneSovrapposizione(anelloVol, anelloAltro, quadro) {
+  const a = pianoDi(anelloAperto(anelloVol), quadro);
+  const b = pianoDi(anelloAperto(anelloAltro), quadro);
+  const propria = Math.abs(areaSegnata(a));
+  if (!(propria > 0)) return 0;
+  return areaIntersezione(a, b) / propria;
+}
+
+function anelliEdificio(ed) {
+  if (ed.parti?.length) return ed.parti.map((p) => p.anello).filter(Boolean);
+  return ed.anello ? [ed.anello] : [];
+}
+
+function sovrapposizioneEccessiva(vol, edifici, quadro) {
+  for (const ed of edifici) {
+    for (const anello of anelliEdificio(ed)) {
+      if (frazioneSovrapposizione(vol.anello, anello, quadro) > SOVRAPPOSIZIONE_MAX) return true;
+    }
+  }
+  return false;
+}
+
 function selezionaOrfani(volumi, edifici, quadro) {
   const orfani = [];
   let scartatiPiccoli = 0;
   for (const vol of volumi) {
-    if (!vol?.centro || !vol?.anello || !(vol.h > 0)) continue;
+    if (!vol?.anello || !(vol.h > 0)) continue;
     const area = areaVolume(vol, quadro);
     if (area < AREA_MIN_VOLUME_M2) {
       scartatiPiccoli += 1;
       continue;
     }
-    if (distanzaDaEdifici(vol, edifici, quadro) <= DISTANZA_OSM_M) continue;
-    orfani.push({ ...vol, areaM2: vol.areaM2 ?? Math.round(area) });
+    const centro = centroide(vol.anello);
+    const candidato = { ...vol, centro, areaM2: vol.areaM2 ?? Math.round(area) };
+    if (distanzaDaEdifici(candidato, edifici, quadro) <= DISTANZA_OSM_M) continue;
+    if (sovrapposizioneEccessiva(candidato, edifici, quadro)) continue;
+    orfani.push(candidato);
   }
   return { orfani, scartatiPiccoli };
 }

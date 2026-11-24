@@ -16,7 +16,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import proj4 from "proj4";
-import { centroide } from "./geo.mjs";
+import { centroidePiano } from "./geo.mjs";
 import { leggiAnelliShp, leggiDbf } from "./shapefile.mjs";
 import { ErrorePrevisto, userAgent } from "./overpass.mjs";
 
@@ -214,8 +214,8 @@ export function unitaNellaBbox(shp, dbf, bbox, meta = {}) {
     const pieno = geometrie[i][0];
     const superficie = areaUtm(pieno);
     if (superficie < 4 || superficie > 20000) continue;
-    const anelloPieno = pieno.map(([E, N]) => da25833(E, N));
-    const centro = centroide(anelloPieno);
+    const [eCentro, nCentro] = centroidePiano(pieno);
+    const centro = da25833(eCentro, nCentro);
     const anello = semplificaUtm(pieno).map(([E, N]) => {
       const [lon, lat] = da25833(E, N);
       return [Math.round(lon * 1e7) / 1e7, Math.round(lat * 1e7) / 1e7];

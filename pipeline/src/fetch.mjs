@@ -38,6 +38,32 @@ function scrivi(file, valore) {
   writeFileSync(file, JSON.stringify(valore));
 }
 
+export const FILE_CACHE_BBOX = ["osm.json", "roads.json", "ground.json", "unvol.json", "unvol-2020.json", "ctrn.json"];
+
+/** True se il bbox salvato nei metadati è quello richiesto. Senza bbox la cache non si riusa. */
+export function bboxCompatibile(salvato, bbox) {
+  if (!Array.isArray(salvato) || !Array.isArray(bbox) || salvato.length !== bbox.length || !bbox.length) return false;
+  return salvato.every((n, i) => Number.isFinite(Number(n)) && Number.isFinite(Number(bbox[i])) && Math.abs(Number(n) - Number(bbox[i])) <= 1e-8);
+}
+
+export function cacheUsabile(doc, bbox, opt = {}) {
+  if (opt.force || !doc) return false;
+  if (opt.stato && doc.stato !== "ok") return false;
+  if (opt.schemaMin != null && !(doc.schema >= opt.schemaMin)) return false;
+  return bboxCompatibile(doc.bbox, bbox);
+}
+
+function leggiSeBbox(file, bbox, opt = {}) {
+  if (!existsSync(file)) return null;
+  let doc;
+  try {
+    doc = JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+  return cacheUsabile(doc, bbox, opt) ? doc : null;
+}
+
 async function fetchArea(area, force, soloOsm = false) {
   const dir = cartellaRaw(area.id);
   const osmFile = path.join(dir, "osm.json");
@@ -46,18 +72,20 @@ async function fetchArea(area, force, soloOsm = false) {
   console.log(`fetch ${area.id} — ${area.nome}`);
   console.log(`  bbox S,W,N,E: ${area.bbox.map((n) => n.toFixed(4)).join(", ")}`);
 
-  if (!force && existsSync(osmFile) && existsSync(roadsFile) && existsSync(groundFile)) {
-    const osm = JSON.parse(readFileSync(osmFile, "utf8"));
-    console.log(`  OSM in cache (${osm.elements?.length ?? 0} elementi), salto la query`);
+  const osmCache = leggiSeBbox(osmFile, area.bbox);
+  const roadsCache = leggiSeBbox(roadsFile, area.bbox);
+  const groundCache = leggiSeBbox(groundFile, area.bbox);
+  if (!force && osmCache && roadsCache && groundCache) {
+    console.log(`  OSM in cache (${osmCache.elements?.length ?? 0} elementi), salto la query`);
   } else {
     const timeout = timeoutSecondi();
     const query = queryArea(area.bbox, timeout);
     console.log("  OSM: query Overpass (edifici, strade, acqua, suolo, alberi, POI, piste, impianti)");
     const { json, host } = await interrogaOverpass(query, { timeoutSec: timeout });
     const parti = dividi(json);
-    scrivi(osmFile, parti.osm);
-    scrivi(roadsFile, parti.roads);
-    scrivi(groundFile, parti.ground);
+    scrivi(osmFile, { ...parti.osm, bbox: area.bbox });
+    scrivi(roadsFile, { ...parti.roads, bbox: area.bbox });
+    scrivi(groundFile, { ...parti.ground, bbox: area.bbox });
     console.log(`  endpoint: ${host}`);
     console.log(`  snapshot: ${json.osm3s?.timestamp_osm_base ?? "sconosciuto"}`);
     console.log(`  elementi ${parti.osm.elements.length}, strade ${parti.roads.elements.length}, suolo ${parti.ground.elements.length}`);
@@ -70,9 +98,9 @@ async function fetchArea(area, force, soloOsm = false) {
   }
 
   const ctrFile = path.join(dir, "ctrn.json");
-  if (!force && existsSync(ctrFile)) {
-    const ctr = JSON.parse(readFileSync(ctrFile, "utf8"));
-    console.log(`  CTR in cache (${ctr.elementi?.length ?? 0} coperture, stato ${ctr.stato})`);
+  const ctrCache = leggiSeBbox(ctrFile, area.bbox);
+  if (!force && ctrCache) {
+    console.log(`  CTR in cache (${ctrCache.elementi?.length ?? 0} coperture, stato ${ctrCache.stato})`);
   } else {
     try {
       console.log("  CTR: WFS elemento di copertura (DBGT 2014, quote 3D)");
@@ -113,9 +141,8 @@ async function fetchArea(area, force, soloOsm = false) {
   }
 
   const unvolFile = path.join(dir, "unvol.json");
-  const unvolCache = existsSync(unvolFile) ? JSON.parse(readFileSync(unvolFile, "utf8")) : null;
-  const unvolPronto = !force && unvolCache?.stato === "ok" && unvolCache.schema >= 3;
-  if (unvolPronto) {
+  const unvolCache = leggiSeBbox(unvolFile, area.bbox, { stato: true, schemaMin: 3 });
+  if (!force && unvolCache) {
     console.log(`  UN_VOL in cache (${unvolCache.elementi?.length ?? 0} volumi, schema ${unvolCache.schema})`);
   } else {
     try {
@@ -136,8 +163,8 @@ async function fetchArea(area, force, soloOsm = false) {
   }
 
   const unvol2020File = path.join(dir, "unvol-2020.json");
-  const cache2020 = existsSync(unvol2020File) ? JSON.parse(readFileSync(unvol2020File, "utf8")) : null;
-  if (!force && cache2020?.stato === "ok" && cache2020.schema >= 3) {
+  const cache2020 = leggiSeBbox(unvol2020File, area.bbox, { stato: true, schemaMin: 3 });
+  if (!force && cache2020) {
     console.log(`  DBGT 2020 in cache (${cache2020.elementi?.length ?? 0} volumi, stato ${cache2020.stato})`);
   } else {
     try {

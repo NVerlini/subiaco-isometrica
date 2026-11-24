@@ -5,13 +5,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { finestraAltezze, pistaPrevista, scegliAltezza, statoAerialway } from "./altezze.mjs";
 import { da25833 } from "./ctr.mjs";
-import { creaQuadro } from "./geo.mjs";
+import { centroide, creaQuadro } from "./geo.mjs";
 import { leggiEndpoint, millisecondiRetryAfter } from "./overpass.mjs";
+import { bboxCompatibile, cacheUsabile } from "./fetch.mjs";
 import {
   ADIACENZA_VOLUME_M,
   AREA_MIN_VOLUME_M2,
   DISTANZA_OSM_M,
   SOGLIA_VOLUMI_ORFANI,
+  SOVRAPPOSIZIONE_MAX,
   avvisoVolumiOrfani,
   integraVolumiOrfani,
 } from "./scene.mjs";
@@ -165,6 +167,85 @@ test("i volumi DBGT oltre 8 m da OSM diventano edifici, i piccoli no", () => {
   assert.equal(da2020[0].altezzaM, 7.4);
   assert.equal(avvisoVolumiOrfani(SOGLIA_VOLUMI_ORFANI), null);
   assert.match(avvisoVolumiOrfani(SOGLIA_VOLUMI_ORFANI + 1), /dbgt-2014/);
+});
+
+function rettangolo(lon, lat, larghezzaM, altezzaM) {
+  const dLat = altezzaM / 111_320;
+  const dLon = larghezzaM / (111_320 * Math.cos((lat * Math.PI) / 180));
+  return [
+    [lon, lat],
+    [lon + dLon, lat],
+    [lon + dLon, lat + dLat],
+    [lon, lat + dLat],
+    [lon, lat],
+  ];
+}
+
+test("il baricentro di una pianta piccola si calcola in metri", () => {
+  const lat = 41.92609;
+  const lon = 13.09482;
+  const lato = 4;
+  const anello = rettangolo(lon, lat, lato, lato);
+  const c = centroide(anello);
+  const veroLon = lon + (lato / 2) / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const veroLat = lat + (lato / 2) / 111_320;
+  const dx = (c[0] - veroLon) * 111_320 * Math.cos((lat * Math.PI) / 180);
+  const dy = (c[1] - veroLat) * 111_320;
+  assert.ok(Math.hypot(dx, dy) < 0.05, `scarto ${Math.hypot(dx, dy)} m`);
+});
+
+test("un volume che copre un edificio già tenuto non entra, un bordo sottile sì", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.926;
+  const lon = 13.1;
+  const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const osm = { id: "way/osm", anello: rettangolo(lon, lat, 10, 40), parti: [] };
+  const coperto = {
+    h: 12,
+    areaM2: 1600,
+    anello: rettangolo(lon, lat, 40, 40),
+    centro: [lon, lat],
+    fonte: "dbgt-2014",
+  };
+  const tenuto = {
+    id: "dbgt-2014:1",
+    fonte: "dbgt-2014",
+    anello: rettangolo(est(80), lat, 20, 20),
+    parti: [{ anello: rettangolo(est(80), lat, 20, 20) }],
+  };
+  const doppione = {
+    h: 11,
+    areaM2: 400,
+    anello: rettangolo(est(80), lat, 20, 20),
+    centro: [0, 0],
+    fonte: "dbgt-2020",
+  };
+  const bordo = {
+    h: 9,
+    areaM2: 400,
+    anello: rettangolo(est(99), lat, 20, 20),
+    centro: [0, 0],
+    fonte: "dbgt-2020",
+  };
+  const esito = integraVolumiOrfani([coperto], [doppione, bordo], [osm, tenuto], quadro);
+  assert.equal(SOVRAPPOSIZIONE_MAX, 0.2);
+  assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2014").length, 0);
+  assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2020").length, 1);
+  assert.equal(esito.edifici[0].fonte, "dbgt-2020");
+  assert.equal(esito.edifici[0].altezzaM, 9);
+});
+
+test("la cache si invalida se il bbox dell'area cambia", () => {
+  const prima = [41.922, 13.0845, 41.93, 13.105];
+  const dopo = [41.918, 13.08, 41.932, 13.115];
+  const doc = { stato: "ok", schema: 3, bbox: prima, elements: [{ id: 1 }] };
+  assert.equal(bboxCompatibile(prima, prima), true);
+  assert.equal(bboxCompatibile(doc.bbox, dopo), false);
+  assert.equal(cacheUsabile(doc, dopo, { stato: true, schemaMin: 3 }), false);
+  assert.equal(cacheUsabile({ ...doc, bbox: dopo }, dopo, { stato: true, schemaMin: 3 }), true);
+  assert.equal(cacheUsabile({ elements: doc.elements }, dopo), false);
+  assert.equal(cacheUsabile({ elements: doc.elements, bbox: dopo }, dopo), true);
+  assert.equal(cacheUsabile({ ...doc, bbox: dopo }, dopo, { force: true, stato: true, schemaMin: 3 }), false);
 });
 
 test("un vertice CTR in EPSG:25833 cade nel centro storico", () => {
