@@ -251,7 +251,7 @@ test("il build scrive web/dist con l'URL delle tile e i crediti", async () => {
       "Open-Meteo",
       "isometricworld",
       "MIT",
-      "dom_gag_96",
+      "mondoisometrico",
       "openstreetmap.org/copyright",
     ]) {
       assert.match(html, new RegExp(pezzo.replace(/[.]/g, "\\$&")));
@@ -261,6 +261,7 @@ test("il build scrive web/dist con l'URL delle tile e i crediti", async () => {
     const jsVuoto = readFileSync(path.join(vuoto, "app.js"), "utf8");
     assert.match(jsVuoto, /__TILES_PUBLIC_URL__ = ""/);
     assert.equal(jsVuoto.includes("tiles.example"), false);
+    assert.equal(html.includes("x.com/dom_gag_96"), false);
   } finally {
     await rm(out, { recursive: true, force: true });
     await rm(vuoto, { recursive: true, force: true });
@@ -373,8 +374,10 @@ test("vercel, il workflow e .env.example non contengono segreti né un cron atti
   assert.equal(env.includes("CLOUDFLARE_API_TOKEN"), false);
   const html = readFileSync(path.join(ROOT, "web/public/index.html"), "utf8");
   assert.match(html, /Open-Meteo/);
-  assert.match(html, /dom_gag_96/);
+  assert.match(html, /mondoisometrico/);
   assert.match(html, /isometricworld/);
+  assert.match(html, /\(MIT\)/);
+  assert.equal(html.includes("x.com/dom_gag_96"), false);
   assert.match(html, /href="stile.css"/);
   assert.match(html, /src="app.js"/);
 });
