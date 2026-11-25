@@ -27,7 +27,7 @@ function accettabile(vol, areaEdificio) {
   return vol.areaM2 <= Math.max(120, areaEdificio * 1.15);
 }
 
-function ePiantaTorre(vol, areaEdificio) {
+export function ePiantaTorre(vol, areaEdificio) {
   const area = areaDi(vol);
   if (!vol.anello || vol.anello.length < 4) return false;
   if (!(vol.h >= 16) || area > AREA_TORRE_M2) return false;

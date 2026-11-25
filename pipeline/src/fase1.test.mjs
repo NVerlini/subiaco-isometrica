@@ -147,7 +147,7 @@ test("i volumi DBGT non coperti restano edifici, i piccoli no", () => {
   assert.equal(esito.edifici.length, 6);
   assert.equal(esito.avviso, null);
   assert.equal(osm.anello.length, 5);
-  assert.equal(osm.altezzaM, 9);
+  assert.equal(osm.altezzaM, 11.5);
   const lontanoEd = esito.edifici.find((ed) => ed.parti.some((p) => p.altezzaM === 14.2));
   assert.equal(lontanoEd.fonte, "dbgt-2014");
   assert.equal(lontanoEd.fonteAltezza, "ctr-unita");
@@ -231,6 +231,46 @@ test("un volume che copre un edificio giÃ  tenuto non entra, un bordo sottile sÃ
   assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2020").length, 1);
   assert.equal(esito.edifici[0].fonte, "dbgt-2020");
   assert.equal(esito.edifici[0].altezzaM, 9);
+});
+
+test("un volume alto con baricentro fuori alza la parte e la torre resta", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.92609;
+  const lon = 13.09482;
+  const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const osm = {
+    id: "way/rocca",
+    landmark: "rocca-abbaziale",
+    anello: rettangolo(lon, lat, 20, 20),
+    altezzaM: 9.5,
+    superficieM2: 400,
+    parti: [{
+      ruolo: "corpo",
+      anello: rettangolo(lon, lat, 20, 20),
+      altezzaM: 9.5,
+      fonteAltezza: "ctr-unita",
+    }],
+  };
+  const corpo = {
+    h: 19.6,
+    areaM2: 400,
+    anello: rettangolo(est(10.5), lat, 20, 20),
+    fonte: "dbgt-2014",
+  };
+  const torre = {
+    h: 42.4,
+    areaM2: 36,
+    anello: rettangolo(est(2), lat, 6, 6),
+    fonte: "dbgt-2014",
+  };
+  const esito = integraVolumiOrfani([corpo, torre], [], [osm], quadro);
+  assert.equal(esito.edifici.length, 0);
+  assert.equal(osm.altezzaM, 19.6);
+  assert.equal(osm.parti.find((p) => p.ruolo === "corpo").altezzaM, 19.6);
+  const partiTorre = osm.parti.filter((p) => p.ruolo === "torre");
+  assert.equal(partiTorre.length, 1);
+  assert.equal(partiTorre[0].altezzaM, 42.4);
+  assert.ok(osm.parti.some((p) => p.anello === corpo.anello && p.altezzaM === 19.6));
 });
 
 test("due case attigue restano e un doppione si scarta", () => {

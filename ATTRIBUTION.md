@@ -38,7 +38,7 @@ La stessa lista, in forma breve, è `pipeline/src/crediti.mjs` e finisce in `wor
   Altezze dal foglio DBGT 2014 `DBT_Lazio_RM376`, classe unità volumetriche, campo `UN_VOL_AV`.
   Integrazione dal DBGT 2020 del comune (`2020_DBGT_5K_SHP/Subiaco.zip`), stessa classe `UN_VOL`: il campo data è 20140101, quindi non è un rilievo più recente del foglio.
   Integrazione parziale dal WFS `geonode:web_020104_ele_cp_a` (elemento di copertura, quote 3D).
-  I volumi UN_VOL entrano in scena con la propria pianta se il baricentro non cade in un edificio già tenuto e se la sovrapposizione non supera il 20% della loro area. Sotto i 12 m² si scartano. Il rilievo 2020 copre solo i buchi del 2014.
+  I volumi UN_VOL con pianta libera entrano in scena. Se il baricentro cade in un edificio già tenuto, o la sovrapposizione supera il 20% della loro area, restano su quell'edificio e possono alzarne l'altezza. Sotto i 12 m² si scartano. Il rilievo 2020 copre solo i buchi del 2014.
   La CTRN raster 1:5 000 non contiene le altezze degli edifici.
 - **Copernicus Sentinel-2** e **ortofoto AGEA 2023**: distribuite dal Geoportale della Regione Lazio, licenza CC BY 4.0. https://geoportale.regione.lazio.it/
   Servono alla pittura. Non sono ancora scaricate dalla pipeline.
