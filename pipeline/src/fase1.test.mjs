@@ -147,7 +147,8 @@ test("i volumi DBGT non coperti restano edifici, i piccoli no", () => {
   assert.equal(esito.edifici.length, 6);
   assert.equal(esito.avviso, null);
   assert.equal(osm.anello.length, 5);
-  assert.equal(osm.altezzaM, 11.5);
+  assert.equal(osm.altezzaM, 9);
+  assert.ok(osm.parti.some((p) => p.altezzaM === 11.5));
   const lontanoEd = esito.edifici.find((ed) => ed.parti.some((p) => p.altezzaM === 14.2));
   assert.equal(lontanoEd.fonte, "dbgt-2014");
   assert.equal(lontanoEd.fonteAltezza, "ctr-unita");
@@ -238,29 +239,25 @@ test("un volume alto con baricentro fuori alza la parte e la torre resta", () =>
   const lat = 41.92609;
   const lon = 13.09482;
   const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const pianta = rettangolo(lon, lat, 20, 10);
   const osm = {
     id: "way/rocca",
     landmark: "rocca-abbaziale",
-    anello: rettangolo(lon, lat, 20, 20),
+    anello: pianta,
     altezzaM: 9.5,
-    superficieM2: 400,
-    parti: [{
-      ruolo: "corpo",
-      anello: rettangolo(lon, lat, 20, 20),
-      altezzaM: 9.5,
-      fonteAltezza: "ctr-unita",
-    }],
+    superficieM2: 200,
+    parti: [{ ruolo: "corpo", anello: pianta, altezzaM: 9.5, fonteAltezza: "ctr-unita" }],
   };
   const corpo = {
     h: 19.6,
-    areaM2: 400,
-    anello: rettangolo(est(10.5), lat, 20, 20),
+    areaM2: 340,
+    anello: rettangolo(est(3.5), lat, 34, 10),
     fonte: "dbgt-2014",
   };
   const torre = {
     h: 42.4,
     areaM2: 36,
-    anello: rettangolo(est(2), lat, 6, 6),
+    anello: rettangolo(est(1), lat, 6, 6),
     fonte: "dbgt-2014",
   };
   const esito = integraVolumiOrfani([corpo, torre], [], [osm], quadro);
@@ -270,7 +267,102 @@ test("un volume alto con baricentro fuori alza la parte e la torre resta", () =>
   const partiTorre = osm.parti.filter((p) => p.ruolo === "torre");
   assert.equal(partiTorre.length, 1);
   assert.equal(partiTorre[0].altezzaM, 42.4);
-  assert.ok(osm.parti.some((p) => p.anello === corpo.anello && p.altezzaM === 19.6));
+  assert.equal(esito.corpiAlzati, 1);
+});
+
+test("il corpo non sale se il volume ne copre solo una parte", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.924;
+  const lon = 13.092;
+  const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const pianta = rettangolo(lon, lat, 30, 20);
+  const andrea = {
+    id: "way/andrea",
+    anello: pianta,
+    altezzaM: 25.4,
+    superficieM2: 600,
+    parti: [{ ruolo: "corpo", anello: pianta, altezzaM: 25.4, fonteAltezza: "ctr-unita" }],
+  };
+  const campanile = {
+    h: 42.4,
+    areaM2: 40,
+    anello: rettangolo(est(4), lat, 6, 7),
+    fonte: "dbgt-2014",
+  };
+  const scarso = {
+    id: "way/435290060",
+    anello: rettangolo(est(80), lat, 20, 20),
+    altezzaM: 11,
+    superficieM2: 400,
+    parti: [{ ruolo: "corpo", anello: rettangolo(est(80), lat, 20, 20), altezzaM: 11 }],
+  };
+  const poco = {
+    h: 18,
+    areaM2: 200,
+    anello: rettangolo(est(94), lat, 20, 10),
+    fonte: "dbgt-2014",
+  };
+  const basso = {
+    h: 25.2,
+    areaM2: 80,
+    anello: rettangolo(est(12), lat, 8, 10),
+    fonte: "dbgt-2014",
+  };
+  const esito = integraVolumiOrfani([campanile, poco, basso], [], [andrea, scarso], quadro);
+  assert.equal(andrea.altezzaM, 25.4);
+  assert.equal(andrea.parti.filter((p) => p.ruolo === "torre").length, 1);
+  assert.equal(andrea.parti.find((p) => p.ruolo === "torre").altezzaM, 42.4);
+  assert.equal(scarso.altezzaM, 11);
+  assert.equal(andrea.parti.some((p) => p.altezzaM === 25.2), false);
+  assert.equal(esito.partiAggiunte, 2);
+});
+
+test("un volume va a un solo edificio e il 2020 non duplica il 2014", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.923;
+  const lon = 13.09;
+  const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const piantaA = rettangolo(lon, lat, 20, 16);
+  const piantaB = rettangolo(est(18), lat, 20, 16);
+  const a = {
+    id: "way/a",
+    anello: piantaA,
+    altezzaM: 8,
+    superficieM2: 320,
+    parti: [{ ruolo: "corpo", anello: piantaA, altezzaM: 8 }],
+  };
+  const b = {
+    id: "way/b",
+    anello: piantaB,
+    altezzaM: 8,
+    superficieM2: 320,
+    parti: [{ ruolo: "corpo", anello: piantaB, altezzaM: 8 }],
+  };
+  const aCavallo = {
+    h: 16,
+    areaM2: 200,
+    anello: rettangolo(est(8), lat, 22, 8),
+    fonte: "dbgt-2014",
+  };
+  const sola = {
+    id: "way/sola",
+    anello: rettangolo(est(80), lat, 16, 16),
+    altezzaM: 10,
+    superficieM2: 256,
+    parti: [{ ruolo: "corpo", anello: rettangolo(est(80), lat, 16, 16), altezzaM: 10 }],
+  };
+  const pianta2014 = rettangolo(est(82), lat, 10, 10);
+  const volume2014 = { h: 18, areaM2: 100, anello: pianta2014, fonte: "dbgt-2014" };
+  const volume2020 = { h: 18.4, areaM2: 100, anello: pianta2014, fonte: "dbgt-2020" };
+  const esito = integraVolumiOrfani([aCavallo, volume2014], [volume2020], [a, b, sola], quadro);
+  assert.equal(a.altezzaM, 8);
+  assert.equal(b.altezzaM, 8);
+  assert.equal(a.parti.length, 1);
+  assert.equal(b.parti.length, 1);
+  assert.equal(sola.parti.filter((p) => p.fonteVolume === "dbgt-2014").length, 1);
+  assert.equal(sola.parti.filter((p) => p.fonteVolume === "dbgt-2020").length, 0);
+  assert.equal(esito.partiDbgt2020, 0);
+  assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2020").length, 0);
 });
 
 test("due case attigue restano e un doppione si scarta", () => {

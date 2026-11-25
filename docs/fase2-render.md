@@ -39,7 +39,7 @@ npm run render -- centro-storico
 npm run export -- centro-storico
 ```
 
-`npm run render` senza `--finestra` usa l'intero bbox. `--finestra rocca-ponte` resta il test sulla Rocca e sul Ponte. `scene` aggiunge gli edifici DBGT che non cadono in una pianta già tenuta. Se il baricentro è dentro, o la pianta copre più del 20% della propria area, il volume resta su quell'edificio: se è più alto ne alza la parte, e se restano almeno 12 m² scoperti diventa una parte. Sotto i 12 m² il volume si scarta. Il 2020 riempie solo i buchi lasciati da OSM e dal 2014 tenuto. I dati DBGT restano in `data/` e non si versionano.
+`npm run render` senza `--finestra` usa l'intero bbox. `--finestra rocca-ponte` resta il test sulla Rocca e sul Ponte. `scene` aggiunge gli edifici DBGT che non cadono in una pianta già tenuta. Un volume si assegna a un solo edificio. Il corpo intero si alza solo se il volume ne copre almeno l'80%. Una parte si aggiunge solo se supera il corpo di oltre 1,5 m. Sotto i 12 m² il volume si scarta. Il 2020 non duplica una parte 2014 già presente. I dati DBGT restano in `data/` e non si versionano.
 
 ## Heading 315°
 
