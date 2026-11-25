@@ -22,7 +22,7 @@ import {
 import { assicuratiDem, apriDem, misuraAree } from "./dem.mjs";
 import { ErrorePrevisto, interrogaOverpass, timeoutSecondi } from "./overpass.mjs";
 import { dividi, queryArea } from "./osm.mjs";
-import { assicuratiUnita, assicuratiUnita2020, scaricaCoperture } from "./ctr.mjs";
+import { SCHEMA_UNVOL, assicuratiUnita, assicuratiUnita2020, scaricaCoperture } from "./ctr.mjs";
 import { assicuratiWorldcover } from "./worldcover.mjs";
 
 const PUNTI = {
@@ -141,7 +141,7 @@ async function fetchArea(area, force, soloOsm = false) {
   }
 
   const unvolFile = path.join(dir, "unvol.json");
-  const unvolCache = leggiSeBbox(unvolFile, area.bbox, { stato: true, schemaMin: 3 });
+  const unvolCache = leggiSeBbox(unvolFile, area.bbox, { stato: true, schemaMin: SCHEMA_UNVOL });
   if (!force && unvolCache) {
     console.log(`  UN_VOL in cache (${unvolCache.elementi?.length ?? 0} volumi, schema ${unvolCache.schema})`);
   } else {
@@ -163,7 +163,7 @@ async function fetchArea(area, force, soloOsm = false) {
   }
 
   const unvol2020File = path.join(dir, "unvol-2020.json");
-  const cache2020 = leggiSeBbox(unvol2020File, area.bbox, { stato: true, schemaMin: 3 });
+  const cache2020 = leggiSeBbox(unvol2020File, area.bbox, { stato: true, schemaMin: SCHEMA_UNVOL });
   if (!force && cache2020) {
     console.log(`  DBGT 2020 in cache (${cache2020.elementi?.length ?? 0} volumi, stato ${cache2020.stato})`);
   } else {

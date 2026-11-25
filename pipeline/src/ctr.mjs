@@ -28,6 +28,9 @@ proj4.defs(
   "+proj=utm +zone=33 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs",
 );
 
+/** Le cache UN_VOL con schema inferiore si rileggono: il baricentro è in metri. */
+export const SCHEMA_UNVOL = 4;
+
 export function da25833(x, y) {
   const [lon, lat] = proj4("EPSG:25833", "EPSG:4326", [x, y]);
   return [lon, lat];
@@ -233,7 +236,7 @@ export function unitaNellaBbox(shp, dbf, bbox, meta = {}) {
   }
   return {
     stato: "ok",
-    schema: 3,
+    schema: SCHEMA_UNVOL,
     classe: meta.classe ?? "DBGT v. 2014 foglio RM376, unità volumetriche UN_VOL",
     campo,
     licenza: "CC BY 4.0",

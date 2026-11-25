@@ -39,7 +39,7 @@ npm run render -- centro-storico
 npm run export -- centro-storico
 ```
 
-`npm run render` senza `--finestra` usa l'intero bbox. `--finestra rocca-ponte` resta il test sulla Rocca e sul Ponte. `scene` aggiunge gli edifici DBGT il cui centroide sta a più di 8 m da un'impronta OSM già tenuta; sotto i 12 m² il volume si scarta. I dati DBGT restano in `data/` e non si versionano.
+`npm run render` senza `--finestra` usa l'intero bbox. `--finestra rocca-ponte` resta il test sulla Rocca e sul Ponte. `scene` aggiunge gli edifici DBGT la cui pianta non copre più del 20% di un edificio già tenuto e il cui baricentro non cade dentro quella pianta; sotto i 12 m² il volume si scarta. Il 2020 riempie solo i buchi lasciati da OSM e dal 2014 tenuto. I dati DBGT restano in `data/` e non si versionano.
 
 ## Heading 315°
 

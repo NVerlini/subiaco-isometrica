@@ -4,14 +4,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { finestraAltezze, pistaPrevista, scegliAltezza, statoAerialway } from "./altezze.mjs";
-import { da25833 } from "./ctr.mjs";
+import { SCHEMA_UNVOL, da25833 } from "./ctr.mjs";
 import { centroide, creaQuadro } from "./geo.mjs";
 import { leggiEndpoint, millisecondiRetryAfter } from "./overpass.mjs";
 import { bboxCompatibile, cacheUsabile } from "./fetch.mjs";
 import {
   ADIACENZA_VOLUME_M,
   AREA_MIN_VOLUME_M2,
-  DISTANZA_OSM_M,
   SOGLIA_VOLUMI_ORFANI,
   SOVRAPPOSIZIONE_MAX,
   avvisoVolumiOrfani,
@@ -112,7 +111,7 @@ function volume(lon, lat, latoM, h, fonte) {
   };
 }
 
-test("i volumi DBGT oltre 8 m da OSM diventano edifici, i piccoli no", () => {
+test("i volumi DBGT non coperti restano edifici, i piccoli no", () => {
   const quadro = creaQuadro(pipeline.regione);
   const origineLon = 13.09;
   const origineLat = 41.926;
@@ -142,11 +141,10 @@ test("i volumi DBGT oltre 8 m da OSM diventano edifici, i piccoli no", () => {
     quadro,
   );
   assert.equal(AREA_MIN_VOLUME_M2, 12);
-  assert.equal(DISTANZA_OSM_M, 8);
   assert.equal(ADIACENZA_VOLUME_M, 1.5);
   assert.equal(esito.scartatiPiccoli, 1);
-  assert.equal(esito.orfani, 6);
-  assert.equal(esito.edifici.length, 5);
+  assert.equal(esito.orfani, 7);
+  assert.equal(esito.edifici.length, 6);
   assert.equal(esito.avviso, null);
   assert.equal(osm.anello.length, 5);
   assert.equal(osm.altezzaM, 9);
@@ -160,7 +158,7 @@ test("i volumi DBGT oltre 8 m da OSM diventano edifici, i piccoli no", () => {
   assert.equal(agglomerato.parti.length, 2);
   assert.deepEqual(agglomerato.parti.map((p) => p.altezzaM).sort((a, b) => a - b), [6.5, 9.1]);
   const staccati = esito.edifici.filter((ed) => ed.fonte === "dbgt-2014" && ed.aggancio === "orfano" && ed.altezzaM < 10);
-  assert.equal(staccati.length, 2);
+  assert.equal(staccati.length, 3);
   const da2020 = esito.edifici.filter((ed) => ed.fonte === "dbgt-2020");
   assert.equal(da2020.length, 1);
   assert.equal(da2020[0].fonteVolume, "dbgt-2020");
@@ -235,6 +233,22 @@ test("un volume che copre un edificio giÃ  tenuto non entra, un bordo sottile sÃ
   assert.equal(esito.edifici[0].altezzaM, 9);
 });
 
+test("due case attigue restano e un doppione si scarta", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.925;
+  const lon = 13.095;
+  const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const osm = { id: "way/casa", anello: quadrato(lon, lat, 10), parti: [] };
+  const attigua = volume(est(12), lat, 10, 8.4, "dbgt-2014");
+  const doppione = volume(lon, lat, 10, 15, "dbgt-2014");
+  const copia2020 = volume(est(12), lat, 10, 8.4, "dbgt-2020");
+  const esito = integraVolumiOrfani([attigua, doppione], [copia2020], [osm], quadro);
+  assert.equal(esito.edifici.length, 1);
+  assert.equal(esito.edifici[0].fonte, "dbgt-2014");
+  assert.equal(esito.edifici[0].altezzaM, 8.4);
+  assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2020").length, 0);
+});
+
 test("la cache si invalida se il bbox dell'area cambia", () => {
   const prima = [41.922, 13.0845, 41.93, 13.105];
   const dopo = [41.918, 13.08, 41.932, 13.115];
@@ -246,6 +260,9 @@ test("la cache si invalida se il bbox dell'area cambia", () => {
   assert.equal(cacheUsabile({ elements: doc.elements }, dopo), false);
   assert.equal(cacheUsabile({ elements: doc.elements, bbox: dopo }, dopo), true);
   assert.equal(cacheUsabile({ ...doc, bbox: dopo }, dopo, { force: true, stato: true, schemaMin: 3 }), false);
+  assert.equal(SCHEMA_UNVOL, 4);
+  assert.equal(cacheUsabile({ stato: "ok", schema: 3, bbox: dopo }, dopo, { stato: true, schemaMin: SCHEMA_UNVOL }), false);
+  assert.equal(cacheUsabile({ stato: "ok", schema: SCHEMA_UNVOL, bbox: dopo }, dopo, { stato: true, schemaMin: SCHEMA_UNVOL }), true);
 });
 
 test("un vertice CTR in EPSG:25833 cade nel centro storico", () => {

@@ -937,8 +937,6 @@ function leggiByte(file) {
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
 }
 
-/** Distanza entro cui un volume DBGT resta altezza di un edificio OSM e non diventa un corpo nuovo. */
-export const DISTANZA_OSM_M = 8;
 /** Stessa soglia di superficie delle impronte OSM. */
 export const AREA_MIN_VOLUME_M2 = 12;
 /** Due volumi dello stesso rilievo si uniscono se le piante distano al massimo così. */
@@ -950,25 +948,11 @@ export const SOVRAPPOSIZIONE_MAX = 0.2;
 
 export function avvisoVolumiOrfani(orfani, soglia = SOGLIA_VOLUMI_ORFANI) {
   if (!(orfani > soglia)) return null;
-  return `attenzione: ${orfani} volumi DBGT a più di ${DISTANZA_OSM_M} m da un edificio OSM (soglia ${soglia}). Entrano in scena come edifici dbgt-2014 o dbgt-2020.`;
+  return `attenzione: ${orfani} volumi DBGT non coperti da un edificio già tenuto (soglia ${soglia}). Entrano in scena come edifici dbgt-2014 o dbgt-2020.`;
 }
 
 function pianoDi(anello, quadro) {
   return anello.map(([lon, lat]) => quadro.piano(lon, lat));
-}
-
-function distanzaDaEdifici(vol, edifici, quadro) {
-  if (edifici.some((ed) => nelPoligono(vol.centro, ed.anello))) return 0;
-  const [e, n] = quadro.piano(vol.centro[0], vol.centro[1]);
-  let minima = Infinity;
-  for (const ed of edifici) {
-    const anelli = ed.parti?.length ? ed.parti.map((p) => p.anello) : [ed.anello];
-    for (const anello of anelli) {
-      if (nelPoligono(vol.centro, anello)) return 0;
-      minima = Math.min(minima, distanzaAnello([e, n], pianoDi(anello, quadro)));
-    }
-  }
-  return minima;
 }
 
 function areaVolume(vol, quadro) {
@@ -1163,6 +1147,15 @@ function anelliEdificio(ed) {
   return ed.anello ? [ed.anello] : [];
 }
 
+function centroDentroEdificio(vol, edifici) {
+  for (const ed of edifici) {
+    for (const anello of anelliEdificio(ed)) {
+      if (nelPoligono(vol.centro, anello)) return true;
+    }
+  }
+  return false;
+}
+
 function sovrapposizioneEccessiva(vol, edifici, quadro) {
   for (const ed of edifici) {
     for (const anello of anelliEdificio(ed)) {
@@ -1184,7 +1177,7 @@ function selezionaOrfani(volumi, edifici, quadro) {
     }
     const centro = centroide(vol.anello);
     const candidato = { ...vol, centro, areaM2: vol.areaM2 ?? Math.round(area) };
-    if (distanzaDaEdifici(candidato, edifici, quadro) <= DISTANZA_OSM_M) continue;
+    if (centroDentroEdificio(candidato, edifici)) continue;
     if (sovrapposizioneEccessiva(candidato, edifici, quadro)) continue;
     orfani.push(candidato);
   }
@@ -1192,9 +1185,9 @@ function selezionaOrfani(volumi, edifici, quadro) {
 }
 
 /**
- * Edifici OSM già tenuti conservano la pianta. I volumi UN_VOL il cui centroide
- * sta a più di 8 m da quelle piante diventano edifici, con l'altezza UN_VOL_AV.
- * Il 2020 riempie solo ciò che il 2014 non ha già coperto.
+ * Edifici OSM già tenuti conservano la pianta. Un volume UN_VOL entra se il
+ * baricentro non cade in una pianta già tenuta e se non ne copre più del 20%
+ * della propria area. Il 2020 si confronta anche con i volumi 2014 tenuti.
  */
 export function integraVolumiOrfani(volumi2014, volumi2020, edificiOsm, quadro) {
   const prima = selezionaOrfani(volumi2014, edificiOsm, quadro);
