@@ -8,30 +8,33 @@
   <link rel="stylesheet" href="stile.css">
 </head>
 <body>
-  <header>
-    <div>
-      <p class="occhiello">Subiaco e Monte Livata</p>
-      <h1>Subiaco Isometrica</h1>
-    </div>
-    <div class="comandi">
-      <p id="fonte" class="fonte">Caricamento</p>
-      <a id="segnala" class="pannello" href="https://github.com/NVerlini/subiaco-isometrica/issues/new" target="_blank" rel="noopener noreferrer">Segnala un errore</a>
-    </div>
-  </header>
-
-  <main id="vista">
+  <main id="vista" aria-label="Mappa isometrica di Subiaco">
     <p id="stato">Caricamento della mappa…</p>
     <div id="tessere"></div>
     <div id="velo" aria-hidden="true"></div>
     <div id="pin"></div>
   </main>
 
-  <nav id="luoghi" class="pannello" aria-label="Luoghi"></nav>
+  <header id="testata" class="pannello">
+    <h1>Subiaco Isometrica</h1>
+    <p id="fonte" class="fonte">Caricamento</p>
+    <button type="button" id="apri-luoghi" aria-expanded="false" aria-controls="luoghi">Luoghi</button>
+  </header>
+
+  <nav id="luoghi" class="pannello" aria-label="Luoghi" hidden></nav>
 
   <section id="meteo" class="pannello" aria-label="Meteo">
     <p>Meteo in caricamento…</p>
   </section>
   <p id="fase" class="pannello fase" hidden></p>
+
+  <div id="zoom" class="pannello" role="group" aria-label="Zoom">
+    <button type="button" id="zoom-piu" aria-label="Avvicina">+</button>
+    <button type="button" id="zoom-meno" aria-label="Allontana">−</button>
+    <button type="button" id="zoom-casa" aria-label="Torna alla Rocca" title="Torna alla Rocca">⌂</button>
+  </div>
+
+  <a id="segnala" class="pannello" href="https://github.com/NVerlini/subiaco-isometrica/issues/new" target="_blank" rel="noopener noreferrer">Segnala un errore</a>
 
   <article id="scheda" class="pannello" hidden>
     <h2></h2>
@@ -43,7 +46,9 @@
     </div>
   </article>
 
-  <footer>
+  <footer id="crediti">
+    <button type="button" id="apri-crediti" aria-expanded="false" aria-controls="elenco-crediti">© OpenStreetMap, Regione Lazio e altri</button>
+    <div id="elenco-crediti" hidden>
     <a href="https://www.openstreetmap.org/copyright">© contributori OpenStreetMap (ODbL)</a>
     <span>·</span>
     <a href="https://geoportale.regione.lazio.it/">© Regione Lazio, DBGT (CC BY 4.0)</a>
@@ -60,6 +65,7 @@
     <span>·</span>
     <a href="https://github.com/krasun/isometricworld">isometricworld</a>
     <span>(MIT)</span>
+  </div>
   </footer>
   <script type="module" src="app.js"></script>
 </body>

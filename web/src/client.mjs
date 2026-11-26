@@ -37,6 +37,9 @@ const fonteEl = document.querySelector("#fonte");
 const faseEl = document.querySelector("#fase");
 const segnala = document.querySelector("#segnala");
 const stato = document.querySelector("#stato");
+const apriLuoghi = document.querySelector("#apri-luoghi");
+const apriCrediti = document.querySelector("#apri-crediti");
+const elencoCrediti = document.querySelector("#elenco-crediti");
 
 const statoVista = {
   world: null,
@@ -224,6 +227,7 @@ function preparaLuoghi() {
     voce.dataset.id = luogo.id;
     voce.textContent = luogo.nome;
     voce.addEventListener("click", () => {
+      mostraLuoghi(false);
       centraSu(luogo.x, luogo.y, Math.min(zoomMassimo(statoVista.world), Math.max(statoVista.zoom, 4)));
       apriScheda(luogo);
     });
@@ -319,6 +323,39 @@ function ruota(ev) {
   aggiornaSegnala();
 }
 
+
+function mostraLuoghi(aperto) {
+  luoghi.hidden = !aperto;
+  apriLuoghi.setAttribute("aria-expanded", aperto ? "true" : "false");
+}
+
+function zoomDi(passi) {
+  if (!statoVista.world) return;
+  statoVista.zoom += passi;
+  limitiZoom();
+  disegna();
+  scriviHash();
+  aggiornaSegnala();
+}
+
+function tornaAllaRocca() {
+  const rocca = statoVista.luoghi.find((l) => l.id === "rocca-abbaziale");
+  if (rocca) centraSu(rocca.x, rocca.y, zoomIniziale(statoVista.world));
+}
+
+function zoomIniziale(world) {
+  return world.demo ? 4 : Math.min(world.native_zoom, 5);
+}
+
+apriLuoghi.addEventListener("click", () => mostraLuoghi(luoghi.hidden));
+apriCrediti.addEventListener("click", () => {
+  elencoCrediti.hidden = !elencoCrediti.hidden;
+  apriCrediti.setAttribute("aria-expanded", elencoCrediti.hidden ? "false" : "true");
+});
+document.querySelector("#zoom-piu").addEventListener("click", () => zoomDi(1));
+document.querySelector("#zoom-meno").addEventListener("click", () => zoomDi(-1));
+document.querySelector("#zoom-casa").addEventListener("click", tornaAllaRocca);
+
 vista.addEventListener("pointerdown", suPuntatore);
 vista.addEventListener("pointermove", muovi);
 vista.addEventListener("pointerup", rilascia);
@@ -326,7 +363,13 @@ vista.addEventListener("pointercancel", rilascia);
 vista.addEventListener("wheel", ruota, { passive: false });
 document.querySelector("#chiudi").addEventListener("click", chiudiScheda);
 document.addEventListener("keydown", (ev) => {
-  if (ev.key === "Escape") chiudiScheda();
+  if (ev.key === "Escape") {
+    chiudiScheda();
+    mostraLuoghi(false);
+  }
+  if (ev.target.closest?.("input, textarea")) return;
+  if (ev.key === "+" || ev.key === "=") zoomDi(1);
+  if (ev.key === "-" || ev.key === "_") zoomDi(-1);
 });
 window.addEventListener("resize", disegna);
 
@@ -354,7 +397,7 @@ try {
   const rocca = statoVista.luoghi.find((l) => l.id === "rocca-abbaziale");
   const hash = daHash();
   if (hash) centraSu(hash.x, hash.y, hash.zoom);
-  else centraSu(rocca.x, rocca.y, world.demo ? 4 : Math.min(world.native_zoom, 5));
+  else centraSu(rocca.x, rocca.y, zoomIniziale(world));
   stato.hidden = true;
   caricaMeteo();
   window.vistaPronta = true;

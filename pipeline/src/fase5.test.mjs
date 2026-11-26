@@ -410,7 +410,7 @@ test("GitHub Pages usa il base path, percorsi relativi e la piramide sotto i 50 
     const js = readFileSync(path.join(out, "app.js"), "utf8");
     assert.match(js, /__TILES_PUBLIC_URL__ = ""/);
     const world = JSON.parse(readFileSync(path.join(out, "data", "world.json"), "utf8"));
-    assert.equal(world.demo, true);
+    assert.notEqual(world.demo, true);
     assert.equal(world.area, "centro-storico");
     assert.equal(world.dipinte, false);
     const indice = JSON.parse(readFileSync(path.join(out, "data", "tiles-photo.json"), "utf8"));

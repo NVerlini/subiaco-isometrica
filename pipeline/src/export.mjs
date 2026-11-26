@@ -126,8 +126,10 @@ export async function esportaArea(area, pipeline, opt = {}) {
       const base = sharp({
         create: { width: TS * 2, height: TS * 2, channels: 3, background: CIELO },
       });
+      // sharp applica resize prima di composite: si unisce prima in un buffer, poi si riduce.
+      const unito = await base.composite(layers).png().toBuffer();
       const firma = await scriviAvif(
-        base.composite(layers).resize(TS, TS, { kernel: "lanczos3" }),
+        sharp(unito).resize(TS, TS, { kernel: "lanczos3" }),
         path.join(photo, String(z), String(px), `${py}.${FORMATO}`),
       );
       indice[z][`${px}_${py}`] = firma;
