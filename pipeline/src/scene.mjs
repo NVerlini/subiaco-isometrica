@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import earcut from "earcut";
+import polygonClipping from "polygon-clipping";
 import {
   RAW,
   aiutoStadio,
@@ -27,7 +28,7 @@ import {
   tipologia,
 } from "./altezze.mjs";
 import { areaM2, bboxInterseca, centroide, creaQuadro, distanzaAnello, nelPoligono } from "./geo.mjs";
-import { separaTorre } from "./torri.mjs";
+import { ePiantaTorre, separaTorre } from "./torri.mjs";
 import { solidiPonte } from "./ponte.mjs";
 import { classeVegetazione, avvisiGeometria, testoAvvisi } from "./vegetazione.mjs";
 import { meshVuoto, scriviGlb } from "./glb.mjs";
@@ -166,13 +167,14 @@ function scenaArea(area, config, pipeline, altezze) {
       const [ce, cn] = quadro.piano(centro[0], centro[1]);
       const suoloM = dtm(ce, cn);
       const agganciati = volumiEdificio(anello, volumiPerCella, quadro, superficie);
-      for (const vol of agganciati.volumi) {
+      const perSplit = pesiSullImpronta(anello, agganciati.volumi, quadro);
+      for (const vol of perSplit) {
         if (Number.isFinite(vol._e) || !vol.centro) continue;
         const [e, n] = quadro.piano(vol.centro[0], vol.centro[1]);
         vol._e = e;
         vol._n = n;
       }
-      const split = separaTorre(agganciati.volumi, superficie);
+      const split = separaTorre(perSplit, superficie);
       const unitaM = split.corpo?.h ?? null;
       const fonteVolume = split.corpo?.fonte ?? null;
       const aggancio = agganciati.aggancio;
@@ -208,12 +210,21 @@ function scenaArea(area, config, pipeline, altezze) {
         fonteAltezza: scelta.fonteAltezza,
         fonteVolume: scelta.fonteAltezza === "ctr-unita" ? fonteVolume : null,
         aggancio,
-        parti: partiEdificio({ anello, buchi: volume.buchi ?? [], scelta, split }),
+        parti: partiEdificio({ anello, buchi: volume.buchi ?? [], scelta, split, superficie, quadro }),
         quotaGrondaM: quotaGronda,
         quotaColmoM: quotaColmo,
         livelli: el.tags?.["building:levels"] ?? null,
       });
     }
+  }
+
+  const integrazione = integraVolumiOrfani(volumi2014, volumi2020, edifici, quadro);
+  for (const ed of integrazione.edifici) {
+    const centro = centroide(ed.anello);
+    const [ce, cn] = quadro.piano(centro[0], centro[1]);
+    const suoloM = dtm(ce, cn);
+    ed.suoloM = suoloM == null ? null : Math.round(suoloM * 10) / 10;
+    edifici.push(ed);
   }
 
   const strade = [];
@@ -332,8 +343,11 @@ function scenaArea(area, config, pipeline, altezze) {
 
   const occupato = new Uint8Array(nx * ny);
   for (const ed of edifici) {
-    const piano = ed.anello.map(([lon, lat]) => quadro.piano(lon, lat));
-    marcaPoligono(occupato, nx, ny, x0, y0, passoM, piano);
+    const parti = ed.parti?.length ? ed.parti : [{ anello: ed.anello }];
+    for (const parte of parti) {
+      const piano = parte.anello.map(([lon, lat]) => quadro.piano(lon, lat));
+      marcaPoligono(occupato, nx, ny, x0, y0, passoM, piano);
+    }
   }
   for (const strada of strade) {
     if (["footway", "path", "steps", "cycleway"].includes(strada.classe)) continue;
@@ -404,7 +418,10 @@ function scenaArea(area, config, pipeline, altezze) {
     altezzaM: p.altezzaM,
     corpoM: ed.altezzaM,
   })));
+  for (const ed of edifici) ed.altezzaVisibileM = altezzaVisibile(ed);
   const da2020 = edifici.filter((ed) => ed.fonteVolume === "dbgt-2020").length;
+  const dbgt2014 = edifici.filter((ed) => ed.fonte === "dbgt-2014").length;
+  const dbgt2020 = edifici.filter((ed) => ed.fonte === "dbgt-2020").length;
 
   const landmark = config.landmark.map((lm) => {
     const disegnato = edifici.find((ed) => ed.landmark === lm.id) ?? ponti.find((p) => p.landmark === lm.id);
@@ -418,7 +435,9 @@ function scenaArea(area, config, pipeline, altezze) {
       osm: lm.osm,
       area: lm.area,
       stato,
-      altezzaM: disegnato?.altezzaM ?? null,
+      altezzaM: disegnato ? altezzaVisibile(disegnato) : null,
+      altezzaVisibileM: disegnato ? altezzaVisibile(disegnato) : null,
+      altezzaCorpoM: disegnato?.altezzaM ?? null,
       fonteAltezza: disegnato?.fonteAltezza ?? null,
       nelBbox,
     };
@@ -432,7 +451,9 @@ function scenaArea(area, config, pipeline, altezze) {
     generato: new Date().toISOString(),
     attribuzioni: [
       "© contributori OpenStreetMap, ODbL",
-      "© Regione Lazio, DBGT 2014 elemento di copertura, CC BY 4.0",
+      "© Regione Lazio, DBGT, CC BY 4.0",
+      "Copernicus Sentinel-2, CC BY 4.0, via Geoportale Regione Lazio",
+      "Ortofoto AGEA 2023, CC BY 4.0, via Geoportale Regione Lazio",
       "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium",
       "Copernicus DEM GLO-30 © DLR e Airbus, programma Copernicus dell'Unione Europea",
     ],
@@ -446,6 +467,19 @@ function scenaArea(area, config, pipeline, altezze) {
       altezze: fonti,
       torri: torri.length,
       volumi2020: da2020,
+      edificiOsm: edifici.length - dbgt2014 - dbgt2020,
+      edificiDbgt: dbgt2014 + dbgt2020,
+      edificiDbgt2014: dbgt2014,
+      edificiDbgt2020: dbgt2020,
+      volumiOrfani: integrazione.orfani,
+      volumiScartatiPiccoli: integrazione.scartatiPiccoli,
+      volumiScartati: integrazione.volumiScartati,
+      partiAggiunte: integrazione.partiAggiunte,
+      partiDbgt2014: integrazione.partiDbgt2014,
+      partiDbgt2020: integrazione.partiDbgt2020,
+      edificiConParti: integrazione.edificiConParti,
+      corpiAlzati: integrazione.corpiAlzati,
+      sogliaVolumiOrfani: SOGLIA_VOLUMI_ORFANI,
       strade: strade.length,
       alberiOsm: alberi.filter((a) => a.fonte === "osm" || a.fonte === "default").length,
       alberiWorldcover: forestali,
@@ -568,6 +602,9 @@ function scenaArea(area, config, pipeline, altezze) {
   });
 
   const avvisi = avvisiGeometria({ edifici });
+  avvisi.volumiOrfani = integrazione.orfani;
+  avvisi.sogliaVolumiOrfani = SOGLIA_VOLUMI_ORFANI;
+  avvisi.avvisoVolumiOrfani = avvisoVolumiOrfani(integrazione.orfani);
   const report = {
     area: area.id,
     conteggi: documento.conteggi,
@@ -583,7 +620,8 @@ function scenaArea(area, config, pipeline, altezze) {
   };
   writeFileSync(path.join(out, "report.json"), JSON.stringify(report, null, 2));
   for (const riga of testoAvvisi(avvisi)) console.log(`  ${riga}`);
-  console.log(`  edifici ${edifici.length} (CTR unità ${fonti["ctr-unita"]}, di cui DBGT 2020 ${da2020}, gronda ${fonti["ctr-gronda"]}, livelli ${fonti["building:levels"]}, default ${fonti["default-tipologia"]})`);
+  console.log(`  edifici ${edifici.length} (OSM ${documento.conteggi.edificiOsm}, DBGT ${dbgt2014 + dbgt2020} di cui 2014 ${dbgt2014} e 2020 ${dbgt2020}; CTR unità ${fonti["ctr-unita"]}, gronda ${fonti["ctr-gronda"]}, livelli ${fonti["building:levels"]}, default ${fonti["default-tipologia"]})`);
+  console.log(`  volumi DBGT orfani ${integrazione.orfani}, scartati sotto 12 m² ${integrazione.scartatiPiccoli}`);
   console.log(`  torri staccate dal corpo: ${torri.length}`);
   for (const torre of torri) console.log(`    ${torre.nome ?? torre.id}: corpo ${torre.corpoM} m, torre ${torre.altezzaM} m`);
   console.log(`  alberi OSM ${documento.conteggi.alberiOsm}, WorldCover ${forestali}, strade ${strade.length}`);
@@ -822,28 +860,58 @@ export async function esegui(argv) {
   console.log("scene completata. Output in data/derived/<area>/scene/.");
 }
 
-function partiEdificio({ anello, buchi, scelta, split }) {
+export function partiEdificio({ anello, buchi, scelta, split, superficie, quadro }) {
   const corpo = {
     ruolo: "corpo",
     anello,
     buchi,
     altezzaM: scelta.altezzaM,
     fonteAltezza: scelta.fonteAltezza,
-    areaM2: split.corpo?.areaM2 ?? null,
+    areaM2: Number.isFinite(superficie) ? Math.round(superficie) : null,
   };
-  if (!split.torri.length) return [corpo];
-  return [
-    corpo,
-    ...split.torri.map((vol) => ({
-      ruolo: "torre",
+  const torri = [];
+  for (const vol of split.torri ?? []) {
+    const pezzi = quadro ? ritagliaSuImpronta(vol.anello, [anello], quadro) : [{
       anello: vol.anello,
-      buchi: [],
-      altezzaM: Math.round(vol.h * 10) / 10,
-      fonteAltezza: "ctr-unita",
-      fonteVolume: vol.fonte ?? "dbgt-2014",
       areaM2: vol.areaM2 ?? null,
-    })),
-  ];
+    }];
+    for (const pezzo of pezzi) {
+      torri.push({
+        ruolo: "torre",
+        anello: pezzo.anello,
+        buchi: [],
+        altezzaM: Math.round(vol.h * 10) / 10,
+        fonteAltezza: "ctr-unita",
+        fonteVolume: vol.fonte ?? "dbgt-2014",
+        areaM2: pezzo.areaM2,
+      });
+    }
+  }
+  return [corpo, ...torri];
+}
+
+export function altezzaVisibile(ed) {
+  const quote = [ed?.altezzaM, ...(ed?.parti ?? []).map((p) => p.altezzaM)].filter((h) => Number.isFinite(h));
+  if (!quote.length) return null;
+  return Math.round(Math.max(...quote) * 10) / 10;
+}
+
+function pesiSullImpronta(anello, volumi, quadro) {
+  const piano = pianoDi(anelloAperto(anello), quadro);
+  const area = Math.abs(areaSegnata(piano));
+  const chiave = (vol) => `${vol.h}:${vol.centro?.[0]}:${vol.centro?.[1]}:${vol.fonte ?? ""}`;
+  const gia = new Set((volumi ?? []).map(chiave));
+  const misurati = [];
+  const visti = new Set();
+  for (const vol of volumi ?? []) {
+    if (!vol?.anello) continue;
+    const vp = pianoDi(anelloAperto(vol.anello), quadro);
+    const peso = area > 0 && vp.length >= 3 ? areaIntersezione(vp, piano) : 0;
+    const copia = { ...vol, peso };
+    misurati.push(copia);
+    visti.add(chiave(vol));
+  }
+  return misurati.filter((vol) => gia.has(chiave(vol)) || (area > 0 && vol.peso / area >= 0.2));
 }
 
 function volumiEdificio(anello, celle, quadro, superficie) {
@@ -862,11 +930,25 @@ function volumiEdificio(anello, celle, quadro, superficie) {
     const verticeDentro = vol.anello?.some((p) => nelPoligono(p, anello));
     if (areaOk && (dist <= 6 || verticeDentro)) rilassati[fonte].push(vol);
   }
-  if (stretti["dbgt-2014"].length) return { volumi: stretti["dbgt-2014"], aggancio: "centroide-2014" };
-  if (stretti["dbgt-2020"].length) return { volumi: stretti["dbgt-2020"], aggancio: "centroide-2020" };
-  if (rilassati["dbgt-2014"].length) return { volumi: rilassati["dbgt-2014"], aggancio: "vicino-2014" };
-  if (rilassati["dbgt-2020"].length) return { volumi: rilassati["dbgt-2020"], aggancio: "vicino-2020" };
-  return { volumi: [], aggancio: null };
+  let volumi = [];
+  let aggancio = null;
+  if (stretti["dbgt-2014"].length) { volumi = stretti["dbgt-2014"]; aggancio = "centroide-2014"; }
+  else if (stretti["dbgt-2020"].length) { volumi = stretti["dbgt-2020"]; aggancio = "centroide-2020"; }
+  else if (rilassati["dbgt-2014"].length) { volumi = rilassati["dbgt-2014"]; aggancio = "vicino-2014"; }
+  else if (rilassati["dbgt-2020"].length) { volumi = rilassati["dbgt-2020"]; aggancio = "vicino-2020"; }
+  const pianoM = pianoDi(anelloAperto(anello), quadro);
+  const area = Math.abs(areaSegnata(pianoM));
+  const gia = new Set(volumi);
+  if (area > 0) {
+    for (const vol of vicini(celle, anello)) {
+      if (gia.has(vol) || !vol.anello) continue;
+      const vp = pianoDi(anelloAperto(vol.anello), quadro);
+      if (vp.length < 3) continue;
+      const inter = areaIntersezione(vp, pianoM);
+      if (inter / area >= 0.2) volumi.push(vol);
+    }
+  }
+  return { volumi, aggancio };
 }
 
 function indicizza(volumi) {
@@ -908,6 +990,603 @@ function leggiFloat32(file) {
 function leggiByte(file) {
   const buf = readFileSync(file);
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+}
+
+/** Stessa soglia di superficie delle impronte OSM e della porzione scoperta che diventa una parte. */
+export const AREA_MIN_VOLUME_M2 = 12;
+/** Due volumi dello stesso rilievo si uniscono se le piante distano al massimo così. */
+export const ADIACENZA_VOLUME_M = 1.5;
+/** Sopra questo numero di volumi orfani il report avvisa: la copertura OSM non basta. */
+export const SOGLIA_VOLUMI_ORFANI = 50;
+/** Sopra questa frazione dell'area del volume la pianta è già coperta e non si duplica. */
+export const SOVRAPPOSIZIONE_MAX = 0.2;
+/** Il corpo intero si alza solo se il volume copre almeno questa quota dell'impronta. */
+export const COPERTURA_CORPO = 0.8;
+/** Una parte o una torre si aggiunge solo se supera il corpo di almeno così. */
+export const SOPRA_CORPO_PARTE_M = 1.5;
+
+export function avvisoVolumiOrfani(orfani, soglia = SOGLIA_VOLUMI_ORFANI) {
+  if (!(orfani > soglia)) return null;
+  return `attenzione: ${orfani} volumi DBGT non coperti da un edificio già tenuto (soglia ${soglia}). Entrano in scena come edifici dbgt-2014 o dbgt-2020.`;
+}
+
+function pianoDi(anello, quadro) {
+  return anello.map(([lon, lat]) => quadro.piano(lon, lat));
+}
+
+function areaVolume(vol, quadro) {
+  if (Number.isFinite(vol.areaM2)) return vol.areaM2;
+  if (!vol.anello) return 0;
+  return areaM2(vol.anello, quadro.piano);
+}
+
+function pianteVicine(a, b, adiacenzaM) {
+  for (const p of a) {
+    if (distanzaAnello(p, b) <= adiacenzaM) return true;
+  }
+  for (const p of b) {
+    if (distanzaAnello(p, a) <= adiacenzaM) return true;
+  }
+  return false;
+}
+
+export function raggruppaVolumi(volumi, quadro, adiacenzaM = ADIACENZA_VOLUME_M) {
+  const n = volumi.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const trova = (i) => {
+    let x = i;
+    while (parent[x] !== x) x = parent[x];
+    parent[i] = x;
+    return x;
+  };
+  const piani = volumi.map((vol) => pianoDi(vol.anello, quadro));
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (pianteVicine(piani[i], piani[j], adiacenzaM)) parent[trova(i)] = trova(j);
+    }
+  }
+  const gruppi = new Map();
+  for (let i = 0; i < n; i++) {
+    const radice = trova(i);
+    if (!gruppi.has(radice)) gruppi.set(radice, []);
+    gruppi.get(radice).push(volumi[i]);
+  }
+  return [...gruppi.values()];
+}
+
+function edificioDbgt(gruppo, fonte, indice) {
+  const principale = gruppo.reduce((a, b) => ((b.areaM2 ?? 0) > (a.areaM2 ?? 0) ? b : a));
+  const parti = gruppo.map((vol) => ({
+    ruolo: "corpo",
+    anello: vol.anello,
+    buchi: [],
+    altezzaM: Math.round(vol.h * 10) / 10,
+    fonteAltezza: "ctr-unita",
+    fonteVolume: fonte,
+    areaM2: vol.areaM2 ?? null,
+  }));
+  return {
+    id: `${fonte}:${indice}`,
+    nome: null,
+    landmark: null,
+    tipologia: "dbgt",
+    anello: principale.anello,
+    buchi: [],
+    superficieM2: gruppo.reduce((s, vol) => s + (vol.areaM2 ?? 0), 0),
+    suoloM: null,
+    altezzaM: Math.round(Math.max(...gruppo.map((vol) => vol.h)) * 10) / 10,
+    fonteAltezza: "ctr-unita",
+    fonteVolume: fonte,
+    fonte,
+    aggancio: gruppo.length > 1 ? "agglomerato" : "orfano",
+    parti,
+    quotaGrondaM: null,
+    quotaColmoM: null,
+    livelli: null,
+  };
+}
+
+function anelloAperto(anello) {
+  if (!anello?.length) return [];
+  const a = anello[0];
+  const b = anello[anello.length - 1];
+  if (anello.length > 1 && a[0] === b[0] && a[1] === b[1]) return anello.slice(0, -1);
+  return anello;
+}
+
+function areaSegnata(punti) {
+  const base = anelloAperto(punti);
+  let a = 0;
+  for (let i = 0; i < base.length; i++) {
+    const p = base[i];
+    const q = base[(i + 1) % base.length];
+    a += p[0] * q[1] - q[0] * p[1];
+  }
+  return a / 2;
+}
+
+function anelloMetri(anello, quadro) {
+  const piano = pianoDi(anelloAperto(anello), quadro);
+  if (piano.length < 3) return null;
+  const ring = piano.map((p) => [p[0], p[1]]);
+  const a = ring[0];
+  const b = ring[ring.length - 1];
+  if (a[0] !== b[0] || a[1] !== b[1]) ring.push([a[0], a[1]]);
+  return ring;
+}
+
+function poligoniDi(multipoligono) {
+  const pezzi = [];
+  for (const poly of multipoligono ?? []) {
+    const outer = poly?.[0];
+    if (!outer || outer.length < 4) continue;
+    const area = Math.abs(areaSegnata(outer));
+    if (area < 0.5) continue;
+    pezzi.push({ metri: outer, area });
+  }
+  return pezzi;
+}
+
+function intersezionePoligoni(anelliA, anelliB, quadro) {
+  const primi = anelliA.map((a) => anelloMetri(a, quadro)).filter(Boolean);
+  const secondi = anelliB.map((a) => anelloMetri(a, quadro)).filter(Boolean);
+  if (!primi.length || !secondi.length) return [];
+  try {
+    let sinistra = [[primi[0]]];
+    for (const ring of primi.slice(1)) sinistra = polygonClipping.union(sinistra, [[ring]]);
+    let destra = [[secondi[0]]];
+    for (const ring of secondi.slice(1)) destra = polygonClipping.union(destra, [[ring]]);
+    return poligoniDi(polygonClipping.intersection(sinistra, destra));
+  } catch {
+    return [];
+  }
+}
+
+function areaIntersezione(soggetto, clip) {
+  if (!soggetto || soggetto.length < 3 || !clip || clip.length < 3) return 0;
+  const chiudi = (punti) => {
+    const ring = punti.map((p) => [p[0], p[1]]);
+    const a = ring[0];
+    const b = ring[ring.length - 1];
+    if (a[0] !== b[0] || a[1] !== b[1]) ring.push([a[0], a[1]]);
+    return ring;
+  };
+  try {
+    return poligoniDi(polygonClipping.intersection([[chiudi(soggetto)]], [[chiudi(clip)]]))
+      .reduce((s, p) => s + p.area, 0);
+  } catch {
+    return 0;
+  }
+}
+
+/** Ritaglio sull'impronta dell'edificio assegnato. Vale anche se i due poligoni non sono convessi. */
+export function ritagliaSuImpronta(anello, impronte, quadro) {
+  const pezzi = intersezionePoligoni([anello], impronte, quadro);
+  return pezzi.map((pezzo) => {
+    const anelloLon = pezzo.metri.map(([e, n]) => quadro.daPiano(e, n));
+    anelloLon.push(anelloLon[0]);
+    return { anello: anelloLon, areaM2: Math.round(pezzo.area * 10) / 10 };
+  }).filter((p) => p.areaM2 >= 1);
+}
+
+export function frazioneSovrapposizione(anelloVol, anelloAltro, quadro) {
+  const a = pianoDi(anelloAperto(anelloVol), quadro);
+  const b = pianoDi(anelloAperto(anelloAltro), quadro);
+  const propria = Math.abs(areaSegnata(a));
+  if (!(propria > 0)) return 0;
+  return areaIntersezione(a, b) / propria;
+}
+
+function bboxPiano(punti) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of punti) {
+    if (p[0] < minX) minX = p[0];
+    if (p[1] < minY) minY = p[1];
+    if (p[0] > maxX) maxX = p[0];
+    if (p[1] > maxY) maxY = p[1];
+  }
+  return [minX, minY, maxX, maxY];
+}
+
+function chiaveAnello(anello) {
+  const aperti = anelloAperto(anello);
+  let s = "";
+  for (const p of aperti) s += `${Math.round(p[0] * 1e6)},${Math.round(p[1] * 1e6)};`;
+  return s;
+}
+
+function anelliEdificio(ed) {
+  const lista = [];
+  const visti = new Set();
+  const aggiungi = (anello) => {
+    if (!anello || anello.length < 4) return;
+    const chiave = chiaveAnello(anello);
+    if (visti.has(chiave)) return;
+    visti.add(chiave);
+    lista.push(anello);
+  };
+  aggiungi(ed?.anello);
+  for (const parte of ed?.parti ?? []) aggiungi(parte.anello);
+  return lista;
+}
+
+function indiceEdifici(edifici, quadro) {
+  const cella = 48;
+  const buckets = new Map();
+  for (const ed of edifici) {
+    for (const anello of anelliEdificio(ed)) {
+      const piano = pianoDi(anelloAperto(anello), quadro);
+      if (piano.length < 3) continue;
+      const box = bboxPiano(piano);
+      const scheda = {
+        ed,
+        anello,
+        piano,
+        box,
+        principale: anello === ed.anello,
+        area: anello === ed.anello
+          ? (Math.abs(areaSegnata(piano)) || ed.superficieM2 || 0)
+          : Math.abs(areaSegnata(piano)),
+      };
+      const x0 = Math.floor(box[0] / cella);
+      const x1 = Math.floor(box[2] / cella);
+      const y0 = Math.floor(box[1] / cella);
+      const y1 = Math.floor(box[3] / cella);
+      for (let x = x0; x <= x1; x++) {
+        for (let y = y0; y <= y1; y++) {
+          const k = `${x}:${y}`;
+          const lista = buckets.get(k);
+          if (lista) lista.push(scheda);
+          else buckets.set(k, [scheda]);
+        }
+      }
+    }
+  }
+  return { buckets, cella };
+}
+
+function schedeVicine(indice, box) {
+  const x0 = Math.floor(box[0] / indice.cella);
+  const x1 = Math.floor(box[2] / indice.cella);
+  const y0 = Math.floor(box[1] / indice.cella);
+  const y1 = Math.floor(box[3] / indice.cella);
+  const visti = new Set();
+  const fuori = [];
+  for (let x = x0; x <= x1; x++) {
+    for (let y = y0; y <= y1; y++) {
+      const lista = indice.buckets.get(`${x}:${y}`);
+      if (!lista) continue;
+      for (const s of lista) {
+        if (visti.has(s)) continue;
+        if (s.box[2] < box[0] || box[2] < s.box[0] || s.box[3] < box[1] || box[3] < s.box[1]) continue;
+        visti.add(s);
+        fuori.push(s);
+      }
+    }
+  }
+  return fuori;
+}
+
+function preparaVolume(vol, quadro) {
+  const centro = centroide(vol.anello);
+  const piano = pianoDi(anelloAperto(vol.anello), quadro);
+  const areaPiano = Math.abs(areaSegnata(piano));
+  return {
+    ...vol,
+    centro,
+    piano,
+    box: bboxPiano(piano),
+    areaPiano,
+    areaM2: vol.areaM2 ?? Math.round(areaPiano),
+  };
+}
+
+/** Una sola misura per volume. Ogni parte degli edifici vicini entra nel confronto. */
+function coperturaVolume(vol, indice) {
+  const perEd = new Map();
+  for (const s of schedeVicine(indice, vol.box)) {
+    const inter = vol.areaPiano > 0 ? areaIntersezione(vol.piano, s.piano) : 0;
+    const dentro = nelPoligono(vol.centro, s.anello);
+    if (inter <= 0 && !dentro) continue;
+    let rec = perEd.get(s.ed);
+    if (!rec) {
+      rec = {
+        ed: s.ed,
+        inter: 0,
+        dentro: false,
+        interPrincipale: 0,
+        areaPrincipale: 0,
+        pianoMigliore: s.piano,
+        interMigliore: -1,
+      };
+      perEd.set(s.ed, rec);
+    }
+    rec.inter += inter;
+    if (dentro) rec.dentro = true;
+    if (s.principale) {
+      rec.interPrincipale = inter;
+      rec.areaPrincipale = s.area;
+    }
+    if (inter > rec.interMigliore) {
+      rec.interMigliore = inter;
+      rec.pianoMigliore = s.piano;
+    }
+  }
+  let best = null;
+  let seconda = 0;
+  for (const rec of perEd.values()) {
+    const frazione = vol.areaPiano > 0 ? rec.inter / vol.areaPiano : 0;
+    const coperturaEdificio = rec.areaPrincipale > 0 ? rec.interPrincipale / rec.areaPrincipale : 0;
+    if (!rec.dentro && !(frazione > SOVRAPPOSIZIONE_MAX)) continue;
+    if (!best || rec.inter > best.inter) {
+      if (best) seconda = Math.max(seconda, best.frazione);
+      best = {
+        ed: rec.ed,
+        frazione,
+        inter: rec.inter,
+        coperturaEdificio,
+        dentro: rec.dentro,
+        pianoMigliore: rec.pianoMigliore,
+      };
+    } else {
+      seconda = Math.max(seconda, frazione);
+    }
+  }
+  if (!best) return null;
+  best.condiviso = seconda > SOVRAPPOSIZIONE_MAX;
+  return best;
+}
+
+function pezziSuEdificio(vol, ed, quadro) {
+  return ritagliaSuImpronta(vol.anello, anelliEdificio(ed), quadro);
+}
+
+function alzaCorpo(ed, h, fonte) {
+  const altezza = Math.round(h * 10) / 10;
+  if (!(altezza > (ed.altezzaM ?? 0) + 0.05)) return false;
+  ed.altezzaM = altezza;
+  ed.fonteAltezza = "ctr-unita";
+  ed.fonteVolume = fonte ?? ed.fonteVolume;
+  if (!Array.isArray(ed.parti)) ed.parti = [];
+  let corpo = ed.parti.find((p) => p.ruolo === "corpo" && p.anello === ed.anello)
+    ?? ed.parti.find((p) => p.ruolo === "corpo");
+  if (!corpo && ed.anello) {
+    corpo = {
+      ruolo: "corpo",
+      anello: ed.anello,
+      buchi: ed.buchi ?? [],
+      altezzaM: altezza,
+      fonteAltezza: "ctr-unita",
+      fonteVolume: fonte ?? null,
+      areaM2: ed.superficieM2 ?? null,
+    };
+    ed.parti.unshift(corpo);
+  } else if (corpo) {
+    corpo.altezzaM = altezza;
+    corpo.fonteAltezza = "ctr-unita";
+    corpo.fonteVolume = fonte ?? corpo.fonteVolume;
+  }
+  return true;
+}
+
+function aggiungiParte(ed, vol, ruolo) {
+  if (!Array.isArray(ed.parti)) ed.parti = [];
+  const altezza = Math.round(vol.h * 10) / 10;
+  const gia = ed.parti.find((p) => p.anello === vol.anello || (
+    p.ruolo === ruolo
+    && p.areaM2 != null
+    && vol.areaM2 != null
+    && Math.abs(p.areaM2 - vol.areaM2) <= 1
+    && Math.abs(p.altezzaM - altezza) <= 0.2
+  ));
+  if (gia) {
+    if (altezza > gia.altezzaM) {
+      gia.altezzaM = altezza;
+      gia.fonteAltezza = "ctr-unita";
+      gia.fonteVolume = vol.fonte ?? gia.fonteVolume;
+    }
+    return;
+  }
+  ed.parti.push({
+    ruolo,
+    anello: vol.anello,
+    buchi: [],
+    altezzaM: altezza,
+    fonteAltezza: "ctr-unita",
+    fonteVolume: vol.fonte ?? "dbgt-2014",
+    areaM2: vol.areaM2 ?? null,
+  });
+}
+
+function parteGiaPresente(ed, vol, quadro) {
+  for (const parte of ed.parti ?? []) {
+    if (!parte.anello || parte.anello === ed.anello) continue;
+    if (!(parte.fonteVolume || parte.ruolo === "torre")) continue;
+    if (frazioneSovrapposizione(vol.anello, parte.anello, quadro) <= SOVRAPPOSIZIONE_MAX) continue;
+    if (vol.h > parte.altezzaM + SOPRA_CORPO_PARTE_M) {
+      parte.altezzaM = Math.round(vol.h * 10) / 10;
+      parte.fonteAltezza = "ctr-unita";
+      parte.fonteVolume = vol.fonte ?? parte.fonteVolume;
+    }
+    return true;
+  }
+  return false;
+}
+
+function applicaVolumiCoperti(volumi, quadro, stats) {
+  for (const vol of volumi) {
+    const copertura = vol.copertura;
+    if (!copertura) continue;
+    const ed = copertura.ed;
+    const fonte = vol.fonte === "dbgt-2020" ? "dbgt-2020" : "dbgt-2014";
+    const corpo = ed.altezzaM ?? 0;
+    if (copertura.coperturaEdificio >= COPERTURA_CORPO && alzaCorpo(ed, vol.h, fonte)) {
+      stats.corpiAlzati += 1;
+    }
+    if (!(vol.h > (ed.altezzaM ?? corpo) + SOPRA_CORPO_PARTE_M)) continue;
+    if (parteGiaPresente(ed, vol, quadro)) continue;
+    const prima = ed.parti?.length ?? 0;
+    const ruolo = ePiantaTorre(vol, ed.superficieM2) ? "torre" : "corpo";
+    for (const pezzo of pezziSuEdificio(vol, ed, quadro)) {
+      aggiungiParte(ed, { ...vol, anello: pezzo.anello, areaM2: pezzo.areaM2 }, ruolo);
+    }
+    if ((ed.parti?.length ?? 0) > prima) {
+      stats.partiAggiunte += 1;
+      if (fonte === "dbgt-2020") stats.partiDbgt2020 += 1;
+      else stats.partiDbgt2014 += 1;
+      stats.edificiConParti.add(ed);
+    }
+  }
+}
+
+function classificaVolumi(volumi, indice, quadro) {
+  const orfani = [];
+  const coperti = [];
+  let scartatiPiccoli = 0;
+  for (const vol of volumi) {
+    if (!vol?.anello || !(vol.h > 0)) continue;
+    const area = areaVolume(vol, quadro);
+    if (area < AREA_MIN_VOLUME_M2) {
+      scartatiPiccoli += 1;
+      continue;
+    }
+    const pronto = preparaVolume(vol, quadro);
+    const copertura = coperturaVolume(pronto, indice);
+    if (copertura) coperti.push({ ...pronto, copertura });
+    else orfani.push(pronto);
+  }
+  return { orfani, coperti, scartatiPiccoli };
+}
+
+function statisticheVuote() {
+  return {
+    partiAggiunte: 0,
+    partiDbgt2014: 0,
+    partiDbgt2020: 0,
+    edificiConParti: new Set(),
+    corpiAlzati: 0,
+  };
+}
+
+/**
+ * Edifici OSM già tenuti conservano la pianta. Un volume si assegna al solo
+ * edificio con cui si sovrappone di più. Il corpo intero si alza solo se il
+ * volume ne copre almeno l'80%. Una parte si aggiunge solo se è più alta del
+ * corpo di oltre 1,5 m. Il 2020 non duplica una parte 2014 già presente.
+ * Un edificio DBGT che copre più del 20% di uno già tenuto, o ne è coperto
+ * per più del 20%, non entra: si tiene il 2020, a parità di fonte il più grande.
+ */
+function areaAnelli(anelli, quadro) {
+  let area = 0;
+  for (const anello of anelli) {
+    const metri = anelloMetri(anello, quadro);
+    if (metri) area += Math.abs(areaSegnata(metri));
+  }
+  return area;
+}
+
+function frazioneReciproca(a, b, quadro) {
+  const anelliA = anelliEdificio(a);
+  const anelliB = anelliEdificio(b);
+  const inter = intersezionePoligoni(anelliA, anelliB, quadro).reduce((s, p) => s + p.area, 0);
+  const areaA = areaAnelli(anelliA, quadro);
+  const areaB = areaAnelli(anelliB, quadro);
+  if (!(areaA > 0) || !(areaB > 0) || !(inter > 0)) return 0;
+  return Math.max(inter / areaA, inter / areaB);
+}
+
+function bboxGradi(ed) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const anello of anelliEdificio(ed)) {
+    for (const p of anello) {
+      if (p[0] < minX) minX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] > maxY) maxY = p[1];
+    }
+  }
+  return [minX, minY, maxX, maxY];
+}
+
+function dedupDbgt(candidati, osm, quadro) {
+  const tenuti = osm.map((ed) => ({ ed, box: bboxGradi(ed) }));
+  const ordinati = candidati.slice().sort((a, b) => {
+    const recenteA = a.fonte === "dbgt-2020" ? 0 : 1;
+    const recenteB = b.fonte === "dbgt-2020" ? 0 : 1;
+    if (recenteA !== recenteB) return recenteA - recenteB;
+    return (b.superficieM2 ?? 0) - (a.superficieM2 ?? 0);
+  });
+  const scelti = [];
+  for (const ed of ordinati) {
+    const box = bboxGradi(ed);
+    const collide = tenuti.some((altro) => {
+      const [ax0, ay0, ax1, ay1] = altro.box;
+      if (box[2] < ax0 || ax1 < box[0] || box[3] < ay0 || ay1 < box[1]) return false;
+      return frazioneReciproca(ed, altro.ed, quadro) > SOVRAPPOSIZIONE_MAX;
+    });
+    if (collide) continue;
+    scelti.push(ed);
+    tenuti.push({ ed, box });
+  }
+  return scelti;
+}
+
+function scartaContenuti(nuovi, esistenti, quadro) {
+  const tenuti = [...esistenti];
+  const fuori = [];
+  for (const ed of nuovi) {
+    const centro = centroide(ed.anello);
+    const dentro = tenuti.some((altro) => (altro.superficieM2 ?? 0) + 1 >= (ed.superficieM2 ?? 0)
+      && anelliEdificio(altro).some((ring) => nelPoligono(centro, ring)
+        && frazioneSovrapposizione(ed.anello, ring, quadro) > 0.8));
+    if (dentro) continue;
+    fuori.push(ed);
+    tenuti.push(ed);
+  }
+  return fuori;
+}
+
+export function integraVolumiOrfani(volumi2014, volumi2020, edificiOsm, quadro) {
+  const stats = statisticheVuote();
+  const prima = classificaVolumi(volumi2014, indiceEdifici(edificiOsm, quadro), quadro);
+  applicaVolumiCoperti(prima.coperti, quadro, stats);
+  const gruppi2014 = raggruppaVolumi(prima.orfani, quadro);
+  const edifici2014 = scartaContenuti(
+    gruppi2014.map((gruppo, i) => edificioDbgt(gruppo, "dbgt-2014", i + 1)),
+    edificiOsm,
+    quadro,
+  );
+  const dopo = classificaVolumi(
+    volumi2020,
+    indiceEdifici(edificiOsm.concat(edifici2014), quadro),
+    quadro,
+  );
+  applicaVolumiCoperti(dopo.coperti, quadro, stats);
+  const gruppi2020 = raggruppaVolumi(dopo.orfani, quadro);
+  const edifici2020 = gruppi2020.map((gruppo, i) => edificioDbgt(gruppo, "dbgt-2020", i + 1));
+  const deduplicati = dedupDbgt(edifici2014.concat(edifici2020), edificiOsm, quadro);
+  const tenuti2014 = deduplicati.filter((ed) => ed.fonte !== "dbgt-2020");
+  const tenuti2020 = deduplicati.filter((ed) => ed.fonte === "dbgt-2020");
+  const orfani = prima.orfani.length + dopo.orfani.length;
+  const scartatiPiccoli = prima.scartatiPiccoli + dopo.scartatiPiccoli;
+  return {
+    edifici: tenuti2014.concat(tenuti2020),
+    orfani,
+    scartatiPiccoli,
+    volumiScartati: scartatiPiccoli,
+    partiAggiunte: stats.partiAggiunte,
+    partiDbgt2014: stats.partiDbgt2014,
+    partiDbgt2020: stats.partiDbgt2020,
+    edificiConParti: stats.edificiConParti.size,
+    corpiAlzati: stats.corpiAlzati,
+    avviso: avvisoVolumiOrfani(orfani),
+  };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -299,7 +299,7 @@ test("le differenze OSM elencano edifici e landmark e non pubblicano", () => {
   assert.match(testo, /way\/3/);
   assert.match(testo, /assente/);
   assert.match(testo, /Non pubblica tile/);
-  for (const nome of ["OpenStreetMap", "DBGT", "Copernicus", "WorldCover", "Open-Meteo", "@dom_gag_96", "isometricworld"]) {
+  for (const nome of ["OpenStreetMap", "DBGT", "Sentinel-2", "AGEA", "Copernicus", "WorldCover", "Open-Meteo", "@dom_gag_96", "isometricworld"]) {
     assert.equal(CREDITI.some((r) => r.includes(nome)), true, nome);
   }
 });
@@ -374,6 +374,9 @@ test("vercel, il workflow e .env.example non contengono segreti né un cron atti
   assert.equal(env.includes("CLOUDFLARE_API_TOKEN"), false);
   const html = readFileSync(path.join(ROOT, "web/public/index.html"), "utf8");
   assert.match(html, /Open-Meteo/);
+  assert.match(html, /DBGT/);
+  assert.match(html, /Sentinel-2/);
+  assert.match(html, /AGEA 2023/);
   assert.match(html, /mondoisometrico/);
   assert.match(html, /isometricworld/);
   assert.match(html, /\(MIT\)/);

@@ -26,6 +26,12 @@ Include la **Rocca Abbaziale** (41,92609 N, 13,09482 E) e il **Ponte San Frances
 
 **Non include** Santa Scolastica né il Sacro Speco: sono troppo fuori dal nucleo compatto (vedi sotto).
 
+### a-ter) Centro abitato di lavoro
+
+`41.918, 13.080, 41.932, 13.115`
+
+È il bbox in `config/areas.json` per `centro-storico`. Circa 1,6 km (N–S) × 2,9 km (E–O), circa 76 tile di render. I conteggi di questa pagina restano quelli del bbox compatto del 15 novembre 2026. La finestra di prova `rocca-ponte` non cambia: serve a controllare Rocca e Ponte senza ridisegnare tutto l'abitato.
+
 ### a-bis) Centro + monasteri
 
 `41.9145, 13.0845, 41.9300, 13.1210`

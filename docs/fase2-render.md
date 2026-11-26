@@ -18,14 +18,28 @@ npm run export
 
 | Comando | Cosa fa |
 |---|---|
-| `npm run render` | Tile 1024×1024 a 0,25 m/px in `data/derived/centro-storico/render/`, pass altezze 256×256 in `height/`, mosaico `render/mosaico.jpg` |
-| `npm run render -- centro-storico --finestra rocca-ponte` | Solo le tile intorno alla Rocca Abbaziale e al Ponte San Francesco |
+| `npm run render` | Tutte le tile del bbox di lavoro del centro abitato (circa 76), 1024×1024 a 0,25 m/px, in `data/derived/centro-storico/render/`, pass altezze in `height/`, mosaico `render/mosaico.jpg` |
+| `npm run render -- centro-storico --finestra rocca-ponte` | Solo la finestra di prova intorno alla Rocca Abbaziale e al Ponte San Francesco |
 | `npm run render -- centro-storico --only -1,-2` | Una tile (o più, separate da `;`) |
 | `npm run render -- --force` | Ridisegna anche le tile già presenti |
 | `npm run render -- --anteprima --heading 0,45,315` | Quadri di confronto, senza toccare le tile. Dopo il congelamento non riallinea la piramide |
 | `npm run export` | Piramide web AVIF, zoom 8→2, tile da 512 px, in `data/web/regions/subiaco/` |
 
 Una tile già scritta non si rifà. Cambiare l'heading dopo il congelamento sposta ogni tile: il render lo rifiuta.
+
+## Pubblicazione del centro abitato
+
+Il bbox di lavoro è `41.918, 13.080, 41.932, 13.115` (`config/areas.json`, circa 76 tile). Per rigenerare geometria e piramide su tutto quel riquadro, non solo sulla finestra di prova:
+
+```bash
+npm run fetch -- centro-storico
+npm run ground -- centro-storico
+npm run scene -- centro-storico
+npm run render -- centro-storico
+npm run export -- centro-storico
+```
+
+`npm run render` senza `--finestra` usa l'intero bbox. `--finestra rocca-ponte` resta il test sulla Rocca e sul Ponte. `scene` aggiunge gli edifici DBGT che non cadono in una pianta già tenuta, comprese le parti secondarie. Un volume a cavallo si assegna all'edificio con la copertura maggiore e la parte si ritaglia sull'impronta, anche se i due poligoni non sono convessi. Il corpo usa la mediana delle altezze pesata sull'area, non il massimo, e si alza per intero solo sopra l'80% dell'impronta; la sua area è quella dell'impronta. Una parte, torre compresa, si aggiunge solo se supera il corpo di oltre 1,5 m. Sotto i 12 m² il volume si scarta. Il 2020 non duplica una parte 2014 già presente. Due edifici DBGT che si sovrappongono per più del 20% (in un verso o nell'altro) si riducono a uno: il 2020, oppure a parità di fonte il più grande. I dati DBGT restano in `data/` e non si versionano.
 
 ## Heading 315°
 

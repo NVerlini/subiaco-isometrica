@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assi, cameraTile, codificaQuota, creaQuadro, decodificaQuota, tileCoperte } from "./geo.mjs";
 import { profiloStradale } from "./strade.mjs";
-import { separaTorre } from "./torri.mjs";
+import { medianaPesata, separaTorre } from "./torri.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const pipeline = JSON.parse(readFileSync(path.join(ROOT, "config/pipeline.json"), "utf8"));
@@ -63,7 +63,9 @@ test("la codifica a 3 cm copre fondovalle e cresta", () => {
 
 test("le tile del centro storico non sono vuote", () => {
   const quadro = quadroProva(pipeline.regione.headingDeg);
-  const [s, w, n, e] = [41.922, 13.0845, 41.93, 13.105];
+  const aree = JSON.parse(readFileSync(path.join(ROOT, "config/areas.json"), "utf8"));
+  const [s, w, n, e] = aree.aree.find((a) => a.id === "centro-storico").bbox;
+  assert.deepEqual([s, w, n, e], [41.918, 13.08, 41.932, 13.115]);
   const punti = [];
   for (const q of [365.5, 538.8]) {
     for (const [lon, lat] of [[w, s], [e, s], [e, n], [w, n]]) {
@@ -73,8 +75,7 @@ test("le tile del centro storico non sono vuote", () => {
     }
   }
   const tiles = tileCoperte(punti);
-  assert.ok(tiles.length >= 4, `solo ${tiles.length} tile`);
-  assert.ok(tiles.length < 80, `troppe tile: ${tiles.length}`);
+  assert.equal(tiles.length, 76);
 });
 
 test("il volume alto e stretto diventa una torre, il corpo no", () => {
@@ -122,6 +123,30 @@ test("il volume alto e stretto diventa una torre, il corpo no", () => {
   ], 723);
   assert.equal(rocca.torri.length, 0);
   assert.equal(rocca.corpo.h, 19.6);
+
+  const andreaAlto = separaTorre([
+    { h: 56.3, areaM2: 48, anello: anelloT, _e: 0, _n: 0 },
+    { h: 42.4, areaM2: 420, anello: anelloT, _e: 40, _n: 0 },
+    { h: 25.4, areaM2: 1600, anello: anelloT, _e: 4, _n: 30 },
+    { h: 24.0, areaM2: 900, anello: anelloT, _e: 6, _n: 34 },
+  ], 2000);
+  assert.equal(andreaAlto.corpo.h, 25.4);
+  assert.ok(andreaAlto.torri.some((t) => t.h === 56.3));
+
+  const andreaReale = separaTorre([
+    { h: 56.3, areaM2: 48, peso: 40, anello: anelloT, _e: 0, _n: 0 },
+    { h: 42.4, areaM2: 2500, peso: 90, anello: anelloT, _e: 40, _n: 0 },
+    { h: 25.4, areaM2: 2600, peso: 1500, anello: anelloT, _e: 6, _n: 40 },
+    { h: 24.0, areaM2: 1900, peso: 900, anello: anelloT, _e: 8, _n: 44 },
+  ], 1855);
+  assert.equal(andreaReale.corpo.h, 25.4);
+  assert.ok(andreaReale.torri.some((t) => t.h === 56.3));
+  assert.notEqual(andreaReale.corpo.h, 42.4);
+  assert.equal(medianaPesata([
+    { h: 42.4, peso: 420 },
+    { h: 25.4, peso: 1600 },
+    { h: 24, peso: 900 },
+  ]), 25.4);
 });
 
 test("la carreggiata scende verso l'erosione e il costruito vicino la segue", () => {

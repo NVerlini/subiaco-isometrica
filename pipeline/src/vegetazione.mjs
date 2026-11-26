@@ -56,8 +56,10 @@ export function avvisiGeometria(scena, { attesi = 68 } = {}) {
 
 export function testoAvvisi(avvisi) {
   const n = avvisi.conteggioDalVivo ? avvisi.senzaAltezzaMisurata : avvisi.attesiNelCentro;
-  return [
+  const righe = [
     `attenzione: ${n} edifici senza altezza misurata (default di tipologia, non una quota CTR). Non bloccano la pittura.`,
     `da verificare a occhio, senza bloccare: ${avvisi.split.map((s) => s.id).join(" e ")}. Il volume stretto potrebbe essere un annesso e non la navata.`,
   ];
+  if (avvisi.avvisoVolumiOrfani) righe.push(avvisi.avvisoVolumiOrfani);
+  return righe;
 }

@@ -6,6 +6,8 @@
 export const CREDITI = [
   "© contributori OpenStreetMap, ODbL",
   "© Regione Lazio, DBGT, CC BY 4.0",
+  "Copernicus Sentinel-2, CC BY 4.0, via Geoportale Regione Lazio",
+  "Ortofoto AGEA 2023, CC BY 4.0, via Geoportale Regione Lazio",
   "Copernicus DEM GLO-30 © DLR e Airbus, programma Copernicus dell'Unione Europea",
   "© ESA WorldCover project 2021, CC BY 4.0 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium",
   "Meteo: Open-Meteo, CC BY 4.0",
