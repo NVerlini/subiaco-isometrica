@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import earcut from "earcut";
+import polygonClipping from "polygon-clipping";
 import {
   RAW,
   aiutoStadio,
@@ -209,7 +210,7 @@ function scenaArea(area, config, pipeline, altezze) {
         fonteAltezza: scelta.fonteAltezza,
         fonteVolume: scelta.fonteAltezza === "ctr-unita" ? fonteVolume : null,
         aggancio,
-        parti: partiEdificio({ anello, buchi: volume.buchi ?? [], scelta, split }),
+        parti: partiEdificio({ anello, buchi: volume.buchi ?? [], scelta, split, superficie, quadro }),
         quotaGrondaM: quotaGronda,
         quotaColmoM: quotaColmo,
         livelli: el.tags?.["building:levels"] ?? null,
@@ -859,28 +860,34 @@ export async function esegui(argv) {
   console.log("scene completata. Output in data/derived/<area>/scene/.");
 }
 
-function partiEdificio({ anello, buchi, scelta, split }) {
+export function partiEdificio({ anello, buchi, scelta, split, superficie, quadro }) {
   const corpo = {
     ruolo: "corpo",
     anello,
     buchi,
     altezzaM: scelta.altezzaM,
     fonteAltezza: scelta.fonteAltezza,
-    areaM2: split.corpo?.areaM2 ?? null,
+    areaM2: Number.isFinite(superficie) ? Math.round(superficie) : null,
   };
-  if (!split.torri.length) return [corpo];
-  return [
-    corpo,
-    ...split.torri.map((vol) => ({
-      ruolo: "torre",
+  const torri = [];
+  for (const vol of split.torri ?? []) {
+    const pezzi = quadro ? ritagliaSuImpronta(vol.anello, [anello], quadro) : [{
       anello: vol.anello,
-      buchi: [],
-      altezzaM: Math.round(vol.h * 10) / 10,
-      fonteAltezza: "ctr-unita",
-      fonteVolume: vol.fonte ?? "dbgt-2014",
       areaM2: vol.areaM2 ?? null,
-    })),
-  ];
+    }];
+    for (const pezzo of pezzi) {
+      torri.push({
+        ruolo: "torre",
+        anello: pezzo.anello,
+        buchi: [],
+        altezzaM: Math.round(vol.h * 10) / 10,
+        fonteAltezza: "ctr-unita",
+        fonteVolume: vol.fonte ?? "dbgt-2014",
+        areaM2: pezzo.areaM2,
+      });
+    }
+  }
+  return [corpo, ...torri];
 }
 
 export function altezzaVisibile(ed) {
@@ -1098,92 +1105,68 @@ function areaSegnata(punti) {
   return a / 2;
 }
 
-function versoPositivo(punti) {
-  const base = anelloAperto(punti);
-  return areaSegnata(base) < 0 ? base.slice().reverse() : base;
+function anelloMetri(anello, quadro) {
+  const piano = pianoDi(anelloAperto(anello), quadro);
+  if (piano.length < 3) return null;
+  const ring = piano.map((p) => [p[0], p[1]]);
+  const a = ring[0];
+  const b = ring[ring.length - 1];
+  if (a[0] !== b[0] || a[1] !== b[1]) ring.push([a[0], a[1]]);
+  return ring;
 }
 
-function convesso(punti) {
-  let segno = 0;
-  const n = punti.length;
-  for (let i = 0; i < n; i++) {
-    const a = punti[i];
-    const b = punti[(i + 1) % n];
-    const c = punti[(i + 2) % n];
-    const z = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
-    if (Math.abs(z) < 1e-6) continue;
-    const s = Math.sign(z);
-    if (!segno) segno = s;
-    else if (s !== segno) return false;
+function poligoniDi(multipoligono) {
+  const pezzi = [];
+  for (const poly of multipoligono ?? []) {
+    const outer = poly?.[0];
+    if (!outer || outer.length < 4) continue;
+    const area = Math.abs(areaSegnata(outer));
+    if (area < 0.5) continue;
+    pezzi.push({ metri: outer, area });
   }
-  return true;
+  return pezzi;
 }
 
-function intersezioneLati(s, e, a, b) {
-  const dsx = e[0] - s[0];
-  const dsy = e[1] - s[1];
-  const dbx = b[0] - a[0];
-  const dby = b[1] - a[1];
-  const den = dsx * dby - dsy * dbx;
-  if (Math.abs(den) < 1e-12) return [(s[0] + e[0]) / 2, (s[1] + e[1]) / 2];
-  const t = ((a[0] - s[0]) * dby - (a[1] - s[1]) * dbx) / den;
-  return [s[0] + t * dsx, s[1] + t * dsy];
-}
-
-function tagliaConvesso(soggetto, clip) {
-  let output = soggetto;
-  for (let i = 0; i < clip.length; i++) {
-    if (!output.length) break;
-    const a = clip[i];
-    const b = clip[(i + 1) % clip.length];
-    const input = output;
-    output = [];
-    for (let j = 0; j < input.length; j++) {
-      const s = input[j];
-      const e = input[(j + 1) % input.length];
-      const sin = (b[0] - a[0]) * (s[1] - a[1]) - (b[1] - a[1]) * (s[0] - a[0]) >= -1e-8;
-      const ein = (b[0] - a[0]) * (e[1] - a[1]) - (b[1] - a[1]) * (e[0] - a[0]) >= -1e-8;
-      if (ein) {
-        if (!sin) output.push(intersezioneLati(s, e, a, b));
-        output.push(e);
-      } else if (sin) output.push(intersezioneLati(s, e, a, b));
-    }
+function intersezionePoligoni(anelliA, anelliB, quadro) {
+  const primi = anelliA.map((a) => anelloMetri(a, quadro)).filter(Boolean);
+  const secondi = anelliB.map((a) => anelloMetri(a, quadro)).filter(Boolean);
+  if (!primi.length || !secondi.length) return [];
+  try {
+    let sinistra = [[primi[0]]];
+    for (const ring of primi.slice(1)) sinistra = polygonClipping.union(sinistra, [[ring]]);
+    let destra = [[secondi[0]]];
+    for (const ring of secondi.slice(1)) destra = polygonClipping.union(destra, [[ring]]);
+    return poligoniDi(polygonClipping.intersection(sinistra, destra));
+  } catch {
+    return [];
   }
-  return output;
-}
-
-function areaGriglia(a, b) {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const p of a) {
-    minX = Math.min(minX, p[0]);
-    maxX = Math.max(maxX, p[0]);
-    minY = Math.min(minY, p[1]);
-    maxY = Math.max(maxY, p[1]);
-  }
-  const passo = Math.max(0.25, Math.max(maxX - minX, maxY - minY) / 40);
-  let dentro = 0;
-  let tot = 0;
-  for (let y = minY + passo / 2; y < maxY; y += passo) {
-    for (let x = minX + passo / 2; x < maxX; x += passo) {
-      if (!nelPoligono([x, y], a)) continue;
-      tot += 1;
-      if (nelPoligono([x, y], b)) dentro += 1;
-    }
-  }
-  if (!tot) return 0;
-  return (dentro / tot) * Math.abs(areaSegnata(a));
 }
 
 function areaIntersezione(soggetto, clip) {
-  const s = versoPositivo(soggetto);
-  const c = versoPositivo(clip);
-  if (s.length < 3 || c.length < 3) return 0;
-  if (convesso(c)) return Math.abs(areaSegnata(tagliaConvesso(s, c)));
-  if (convesso(s)) return Math.abs(areaSegnata(tagliaConvesso(c, s)));
-  return areaGriglia(s, c);
+  if (!soggetto || soggetto.length < 3 || !clip || clip.length < 3) return 0;
+  const chiudi = (punti) => {
+    const ring = punti.map((p) => [p[0], p[1]]);
+    const a = ring[0];
+    const b = ring[ring.length - 1];
+    if (a[0] !== b[0] || a[1] !== b[1]) ring.push([a[0], a[1]]);
+    return ring;
+  };
+  try {
+    return poligoniDi(polygonClipping.intersection([[chiudi(soggetto)]], [[chiudi(clip)]]))
+      .reduce((s, p) => s + p.area, 0);
+  } catch {
+    return 0;
+  }
+}
+
+/** Ritaglio sull'impronta dell'edificio assegnato. Vale anche se i due poligoni non sono convessi. */
+export function ritagliaSuImpronta(anello, impronte, quadro) {
+  const pezzi = intersezionePoligoni([anello], impronte, quadro);
+  return pezzi.map((pezzo) => {
+    const anelloLon = pezzo.metri.map(([e, n]) => quadro.daPiano(e, n));
+    anelloLon.push(anelloLon[0]);
+    return { anello: anelloLon, areaM2: Math.round(pezzo.area * 10) / 10 };
+  }).filter((p) => p.areaM2 >= 1);
 }
 
 export function frazioneSovrapposizione(anelloVol, anelloAltro, quadro) {
@@ -1208,12 +1191,21 @@ function bboxPiano(punti) {
   return [minX, minY, maxX, maxY];
 }
 
+function chiaveAnello(anello) {
+  const aperti = anelloAperto(anello);
+  let s = "";
+  for (const p of aperti) s += `${Math.round(p[0] * 1e6)},${Math.round(p[1] * 1e6)};`;
+  return s;
+}
+
 function anelliEdificio(ed) {
   const lista = [];
   const visti = new Set();
   const aggiungi = (anello) => {
-    if (!anello || anello.length < 4 || visti.has(anello)) return;
-    visti.add(anello);
+    if (!anello || anello.length < 4) return;
+    const chiave = chiaveAnello(anello);
+    if (visti.has(chiave)) return;
+    visti.add(chiave);
     lista.push(anello);
   };
   aggiungi(ed?.anello);
@@ -1348,18 +1340,8 @@ function coperturaVolume(vol, indice) {
   return best;
 }
 
-function anelloRitagliato(vol, copertura, quadro) {
-  const intero = { anello: vol.anello, areaM2: vol.areaM2 ?? null };
-  if (!copertura.pianoMigliore || !quadro.daPiano) return intero;
-  let clip = null;
-  if (convesso(copertura.pianoMigliore)) clip = tagliaConvesso(vol.piano, copertura.pianoMigliore);
-  else if (convesso(vol.piano)) clip = tagliaConvesso(copertura.pianoMigliore, vol.piano);
-  if (!clip || clip.length < 3) return intero;
-  const area = Math.abs(areaSegnata(clip));
-  if (area < 1) return intero;
-  const anello = clip.map(([e, n]) => quadro.daPiano(e, n));
-  anello.push(anello[0]);
-  return { anello, areaM2: Math.round(area * 10) / 10 };
+function pezziSuEdificio(vol, ed, quadro) {
+  return ritagliaSuImpronta(vol.anello, anelliEdificio(ed), quadro);
 }
 
 function alzaCorpo(ed, h, fonte) {
@@ -1447,8 +1429,10 @@ function applicaVolumiCoperti(volumi, quadro, stats) {
     if (!(vol.h > (ed.altezzaM ?? corpo) + SOPRA_CORPO_PARTE_M)) continue;
     if (parteGiaPresente(ed, vol, quadro)) continue;
     const prima = ed.parti?.length ?? 0;
-    const ritaglio = anelloRitagliato(vol, copertura, quadro);
-    aggiungiParte(ed, { ...vol, anello: ritaglio.anello, areaM2: ritaglio.areaM2 }, ePiantaTorre(vol, ed.superficieM2) ? "torre" : "corpo");
+    const ruolo = ePiantaTorre(vol, ed.superficieM2) ? "torre" : "corpo";
+    for (const pezzo of pezziSuEdificio(vol, ed, quadro)) {
+      aggiungiParte(ed, { ...vol, anello: pezzo.anello, areaM2: pezzo.areaM2 }, ruolo);
+    }
     if ((ed.parti?.length ?? 0) > prima) {
       stats.partiAggiunte += 1;
       if (fonte === "dbgt-2020") stats.partiDbgt2020 += 1;
@@ -1492,7 +1476,67 @@ function statisticheVuote() {
  * edificio con cui si sovrappone di più. Il corpo intero si alza solo se il
  * volume ne copre almeno l'80%. Una parte si aggiunge solo se è più alta del
  * corpo di oltre 1,5 m. Il 2020 non duplica una parte 2014 già presente.
+ * Un edificio DBGT che copre più del 20% di uno già tenuto, o ne è coperto
+ * per più del 20%, non entra: si tiene il 2020, a parità di fonte il più grande.
  */
+function areaAnelli(anelli, quadro) {
+  let area = 0;
+  for (const anello of anelli) {
+    const metri = anelloMetri(anello, quadro);
+    if (metri) area += Math.abs(areaSegnata(metri));
+  }
+  return area;
+}
+
+function frazioneReciproca(a, b, quadro) {
+  const anelliA = anelliEdificio(a);
+  const anelliB = anelliEdificio(b);
+  const inter = intersezionePoligoni(anelliA, anelliB, quadro).reduce((s, p) => s + p.area, 0);
+  const areaA = areaAnelli(anelliA, quadro);
+  const areaB = areaAnelli(anelliB, quadro);
+  if (!(areaA > 0) || !(areaB > 0) || !(inter > 0)) return 0;
+  return Math.max(inter / areaA, inter / areaB);
+}
+
+function bboxGradi(ed) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const anello of anelliEdificio(ed)) {
+    for (const p of anello) {
+      if (p[0] < minX) minX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] > maxY) maxY = p[1];
+    }
+  }
+  return [minX, minY, maxX, maxY];
+}
+
+function dedupDbgt(candidati, osm, quadro) {
+  const tenuti = osm.map((ed) => ({ ed, box: bboxGradi(ed) }));
+  const ordinati = candidati.slice().sort((a, b) => {
+    const recenteA = a.fonte === "dbgt-2020" ? 0 : 1;
+    const recenteB = b.fonte === "dbgt-2020" ? 0 : 1;
+    if (recenteA !== recenteB) return recenteA - recenteB;
+    return (b.superficieM2 ?? 0) - (a.superficieM2 ?? 0);
+  });
+  const scelti = [];
+  for (const ed of ordinati) {
+    const box = bboxGradi(ed);
+    const collide = tenuti.some((altro) => {
+      const [ax0, ay0, ax1, ay1] = altro.box;
+      if (box[2] < ax0 || ax1 < box[0] || box[3] < ay0 || ay1 < box[1]) return false;
+      return frazioneReciproca(ed, altro.ed, quadro) > SOVRAPPOSIZIONE_MAX;
+    });
+    if (collide) continue;
+    scelti.push(ed);
+    tenuti.push({ ed, box });
+  }
+  return scelti;
+}
+
 function scartaContenuti(nuovi, esistenti, quadro) {
   const tenuti = [...esistenti];
   const fuori = [];
@@ -1526,10 +1570,13 @@ export function integraVolumiOrfani(volumi2014, volumi2020, edificiOsm, quadro) 
   applicaVolumiCoperti(dopo.coperti, quadro, stats);
   const gruppi2020 = raggruppaVolumi(dopo.orfani, quadro);
   const edifici2020 = gruppi2020.map((gruppo, i) => edificioDbgt(gruppo, "dbgt-2020", i + 1));
+  const deduplicati = dedupDbgt(edifici2014.concat(edifici2020), edificiOsm, quadro);
+  const tenuti2014 = deduplicati.filter((ed) => ed.fonte !== "dbgt-2020");
+  const tenuti2020 = deduplicati.filter((ed) => ed.fonte === "dbgt-2020");
   const orfani = prima.orfani.length + dopo.orfani.length;
   const scartatiPiccoli = prima.scartatiPiccoli + dopo.scartatiPiccoli;
   return {
-    edifici: edifici2014.concat(edifici2020),
+    edifici: tenuti2014.concat(tenuti2020),
     orfani,
     scartatiPiccoli,
     volumiScartati: scartatiPiccoli,

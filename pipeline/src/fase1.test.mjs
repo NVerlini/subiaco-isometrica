@@ -16,6 +16,8 @@ import {
   altezzaVisibile,
   avvisoVolumiOrfani,
   integraVolumiOrfani,
+  partiEdificio,
+  ritagliaSuImpronta,
 } from "./scene.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -457,6 +459,137 @@ test("la cache si invalida se il bbox dell'area cambia", () => {
   assert.equal(SCHEMA_UNVOL, 4);
   assert.equal(cacheUsabile({ stato: "ok", schema: 3, bbox: dopo }, dopo, { stato: true, schemaMin: SCHEMA_UNVOL }), false);
   assert.equal(cacheUsabile({ stato: "ok", schema: SCHEMA_UNVOL, bbox: dopo }, dopo, { stato: true, schemaMin: SCHEMA_UNVOL }), true);
+});
+
+function metri(lat, lon) {
+  const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const nord = (m) => lat + m / 111_320;
+  const anello = (punti) => {
+    const ring = punti.map(([e, n]) => [est(e), nord(n)]);
+    ring.push(ring[0]);
+    return ring;
+  };
+  return { est, nord, anello };
+}
+
+function frazioneDentro(pezzo, impronta, quadro) {
+  const diNuovo = ritagliaSuImpronta(pezzo.anello, [impronta], quadro);
+  const dentro = diNuovo.reduce((s, p) => s + p.areaM2, 0);
+  return pezzo.areaM2 > 0 ? dentro / pezzo.areaM2 : 0;
+}
+
+test("il ritaglio tiene solo l'intersezione anche con poligoni non convessi", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.924;
+  const lon = 13.091;
+  const { anello } = metri(lat, lon);
+  const impronta = anello([[0, 0], [16, 0], [16, 6], [6, 6], [6, 16], [0, 16]]);
+  const vol = anello([[2, -4], [20, -4], [20, 10], [10, 10], [10, 4], [2, 4]]);
+  const pezzi = ritagliaSuImpronta(vol, [impronta], quadro);
+  assert.ok(pezzi.length >= 1);
+  const area = pezzi.reduce((s, p) => s + p.areaM2, 0);
+  assert.ok(area < 120, `area ritagliata ${area}`);
+  for (const pezzo of pezzi) assert.ok(frazioneDentro(pezzo, impronta, quadro) >= 0.95);
+  const ed = {
+    id: "way/153585997",
+    anello: impronta,
+    altezzaM: 9,
+    superficieM2: 196,
+    parti: [{ ruolo: "corpo", anello: impronta, altezzaM: 9, areaM2: 999 }],
+  };
+  integraVolumiOrfani(
+    [{ h: 19.6, areaM2: 400, anello: vol, fonte: "dbgt-2014" }],
+    [],
+    [ed],
+    quadro,
+  );
+  const parte = ed.parti.find((p) => p.altezzaM === 19.6);
+  assert.ok(parte);
+  assert.ok(parte.areaM2 < 120);
+  assert.ok(frazioneDentro(parte, impronta, quadro) >= 0.95);
+  assert.equal(ed.parti.filter((p) => p.altezzaM === 19.6).length, pezzi.length);
+});
+
+test("una torre su impronta convessa si ritaglia e il corpo ha l'area dell'impronta", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.9245;
+  const lon = 13.092;
+  const { anello } = metri(lat, lon);
+  const impronta = anello([[0, 0], [12, 0], [12, 10], [0, 10]]);
+  const torre = anello([[4, -6], [22, -6], [22, 8], [4, 8]]);
+  const parti = partiEdificio({
+    anello: impronta,
+    buchi: [],
+    scelta: { altezzaM: 9, fonteAltezza: "default-tipologia" },
+    split: {
+      corpo: { areaM2: 577, h: 9 },
+      torri: [{ anello: torre, h: 16, fonte: "dbgt-2014", areaM2: 252 }],
+    },
+    superficie: 120,
+    quadro,
+  });
+  assert.equal(parti[0].ruolo, "corpo");
+  assert.equal(parti[0].areaM2, 120);
+  const pezzo = parti.find((p) => p.ruolo === "torre");
+  assert.ok(pezzo);
+  assert.ok(pezzo.areaM2 < 100, `torre ${pezzo.areaM2}`);
+  assert.ok(pezzo.areaM2 > 40);
+  assert.ok(frazioneDentro(pezzo, impronta, quadro) >= 0.95);
+});
+
+test("i prismi doppi oltre il 20% si riducono al più recente o al più grande", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.928;
+  const lon = 13.098;
+  const { anello } = metri(lat, lon);
+  const piantaOsm = anello([[0, 0], [20, 0], [20, 10], [0, 10]]);
+  const osm = {
+    id: "way/1101730409",
+    anello: piantaOsm,
+    altezzaM: 8,
+    superficieM2: 200,
+    parti: [{ ruolo: "corpo", anello: piantaOsm, altezzaM: 8 }],
+  };
+  const sopraOsm = {
+    h: 11,
+    areaM2: 800,
+    anello: anello([[15, -5], [55, -5], [55, 15], [15, 15]]),
+    fonte: "dbgt-2014",
+  };
+  const grande = {
+    h: 10,
+    areaM2: 280,
+    anello: anello([[80, -2], [100, -2], [100, 12], [80, 12]]),
+    fonte: "dbgt-2014",
+  };
+  const sovrapposto = {
+    h: 12,
+    areaM2: 200,
+    anello: anello([[68, 0], [88, 0], [88, 10], [68, 10]]),
+    fonte: "dbgt-2014",
+  };
+  const recente = {
+    h: 9,
+    areaM2: 1000,
+    anello: anello([[140, 0], [190, 0], [190, 20], [140, 20]]),
+    fonte: "dbgt-2020",
+  };
+  const vecchio = {
+    h: 14,
+    areaM2: 256,
+    anello: anello([[182, 2], [198, 2], [198, 18], [182, 18]]),
+    fonte: "dbgt-2014",
+  };
+  const esito = integraVolumiOrfani(
+    [sopraOsm, grande, sovrapposto, vecchio],
+    [recente],
+    [osm],
+    quadro,
+  );
+  assert.equal(esito.edifici.length, 2);
+  assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2020").length, 1);
+  assert.equal(esito.edifici.find((ed) => ed.fonte === "dbgt-2014").superficieM2, 280);
+  assert.equal(osm.parti.length, 1);
 });
 
 test("un vertice CTR in EPSG:25833 cade nel centro storico", () => {

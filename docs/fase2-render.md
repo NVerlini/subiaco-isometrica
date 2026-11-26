@@ -39,7 +39,7 @@ npm run render -- centro-storico
 npm run export -- centro-storico
 ```
 
-`npm run render` senza `--finestra` usa l'intero bbox. `--finestra rocca-ponte` resta il test sulla Rocca e sul Ponte. `scene` aggiunge gli edifici DBGT che non cadono in una pianta già tenuta, comprese le parti secondarie. Un volume a cavallo si assegna all'edificio con la copertura maggiore. Il corpo usa la mediana delle altezze pesata sull'area, non il massimo, e si alza per intero solo sopra l'80% dell'impronta. Una parte si aggiunge solo se supera il corpo di oltre 1,5 m. Sotto i 12 m² il volume si scarta. Il 2020 non duplica una parte 2014 già presente. I dati DBGT restano in `data/` e non si versionano.
+`npm run render` senza `--finestra` usa l'intero bbox. `--finestra rocca-ponte` resta il test sulla Rocca e sul Ponte. `scene` aggiunge gli edifici DBGT che non cadono in una pianta già tenuta, comprese le parti secondarie. Un volume a cavallo si assegna all'edificio con la copertura maggiore e la parte si ritaglia sull'impronta, anche se i due poligoni non sono convessi. Il corpo usa la mediana delle altezze pesata sull'area, non il massimo, e si alza per intero solo sopra l'80% dell'impronta; la sua area è quella dell'impronta. Una parte, torre compresa, si aggiunge solo se supera il corpo di oltre 1,5 m. Sotto i 12 m² il volume si scarta. Il 2020 non duplica una parte 2014 già presente. Due edifici DBGT che si sovrappongono per più del 20% (in un verso o nell'altro) si riducono a uno: il 2020, oppure a parità di fonte il più grande. I dati DBGT restano in `data/` e non si versionano.
 
 ## Heading 315°
 

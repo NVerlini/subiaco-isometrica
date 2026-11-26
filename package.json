@@ -2,7 +2,7 @@
   "name": "subiaco-isometrica",
   "version": "0.1.0",
   "private": true,
-    "description": "Mappa isometrica interattiva di Subiaco (RM) e Monte Livata. FASE 5: pubblicazione, senza deploy automatico.",
+  "description": "Mappa isometrica interattiva di Subiaco (RM) e Monte Livata. FASE 5: pubblicazione, senza deploy automatico.",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -25,9 +25,10 @@
   },
   "dependencies": {
     "earcut": "^3.0.2",
-    "geotiff": "^2.1.3",
     "esbuild": "^0.25.5",
+    "geotiff": "^2.1.3",
     "playwright-core": "^1.65.0",
+    "polygon-clipping": "^0.15.7",
     "proj4": "^2.15.0",
     "sharp": "^0.34.2",
     "three": "^0.170.0"
