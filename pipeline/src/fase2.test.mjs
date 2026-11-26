@@ -132,6 +132,16 @@ test("il volume alto e stretto diventa una torre, il corpo no", () => {
   ], 2000);
   assert.equal(andreaAlto.corpo.h, 25.4);
   assert.ok(andreaAlto.torri.some((t) => t.h === 56.3));
+
+  const andreaReale = separaTorre([
+    { h: 56.3, areaM2: 48, peso: 40, anello: anelloT, _e: 0, _n: 0 },
+    { h: 42.4, areaM2: 2500, peso: 90, anello: anelloT, _e: 40, _n: 0 },
+    { h: 25.4, areaM2: 2600, peso: 1500, anello: anelloT, _e: 6, _n: 40 },
+    { h: 24.0, areaM2: 1900, peso: 900, anello: anelloT, _e: 8, _n: 44 },
+  ], 1855);
+  assert.equal(andreaReale.corpo.h, 25.4);
+  assert.ok(andreaReale.torri.some((t) => t.h === 56.3));
+  assert.notEqual(andreaReale.corpo.h, 42.4);
   assert.equal(medianaPesata([
     { h: 42.4, peso: 420 },
     { h: 25.4, peso: 1600 },

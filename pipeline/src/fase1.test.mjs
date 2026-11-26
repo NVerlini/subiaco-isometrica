@@ -13,6 +13,7 @@ import {
   AREA_MIN_VOLUME_M2,
   SOGLIA_VOLUMI_ORFANI,
   SOVRAPPOSIZIONE_MAX,
+  altezzaVisibile,
   avvisoVolumiOrfani,
   integraVolumiOrfani,
 } from "./scene.mjs";
@@ -408,8 +409,22 @@ test("una parte secondaria copre il volume 2020 e un volume a cavallo va al prev
   assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2020").length, 0);
   const parteRocca = rocca.parti.find((p) => p.altezzaM === 19.6);
   assert.ok(parteRocca);
+  assert.ok(parteRocca.areaM2 < aCavallo.areaM2);
+  assert.equal(altezzaVisibile(rocca), 19.6);
   assert.equal(vicino.parti.some((p) => p.altezzaM === 19.6), false);
   assert.equal(vicino.altezzaM, 8);
+});
+
+test("un edificio DBGT tutto dentro un altro si scarta", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.927;
+  const lon = 13.096;
+  const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const esterno = volume(lon, lat, 30, 12, "dbgt-2014");
+  const interno = volume(est(11), lat + 11 / 111_320, 8, 14, "dbgt-2014");
+  const esito = integraVolumiOrfani([esterno, interno], [], [], quadro);
+  assert.equal(esito.edifici.length, 1);
+  assert.equal(esito.edifici[0].superficieM2, 900);
 });
 
 test("due case attigue restano e un doppione si scarta", () => {

@@ -166,13 +166,14 @@ function scenaArea(area, config, pipeline, altezze) {
       const [ce, cn] = quadro.piano(centro[0], centro[1]);
       const suoloM = dtm(ce, cn);
       const agganciati = volumiEdificio(anello, volumiPerCella, quadro, superficie);
-      for (const vol of agganciati.volumi) {
+      const perSplit = pesiSullImpronta(anello, agganciati.volumi, quadro);
+      for (const vol of perSplit) {
         if (Number.isFinite(vol._e) || !vol.centro) continue;
         const [e, n] = quadro.piano(vol.centro[0], vol.centro[1]);
         vol._e = e;
         vol._n = n;
       }
-      const split = separaTorre(agganciati.volumi, superficie);
+      const split = separaTorre(perSplit, superficie);
       const unitaM = split.corpo?.h ?? null;
       const fonteVolume = split.corpo?.fonte ?? null;
       const aggancio = agganciati.aggancio;
@@ -416,6 +417,7 @@ function scenaArea(area, config, pipeline, altezze) {
     altezzaM: p.altezzaM,
     corpoM: ed.altezzaM,
   })));
+  for (const ed of edifici) ed.altezzaVisibileM = altezzaVisibile(ed);
   const da2020 = edifici.filter((ed) => ed.fonteVolume === "dbgt-2020").length;
   const dbgt2014 = edifici.filter((ed) => ed.fonte === "dbgt-2014").length;
   const dbgt2020 = edifici.filter((ed) => ed.fonte === "dbgt-2020").length;
@@ -432,7 +434,9 @@ function scenaArea(area, config, pipeline, altezze) {
       osm: lm.osm,
       area: lm.area,
       stato,
-      altezzaM: disegnato?.altezzaM ?? null,
+      altezzaM: disegnato ? altezzaVisibile(disegnato) : null,
+      altezzaVisibileM: disegnato ? altezzaVisibile(disegnato) : null,
+      altezzaCorpoM: disegnato?.altezzaM ?? null,
       fonteAltezza: disegnato?.fonteAltezza ?? null,
       nelBbox,
     };
@@ -879,6 +883,30 @@ function partiEdificio({ anello, buchi, scelta, split }) {
   ];
 }
 
+export function altezzaVisibile(ed) {
+  const quote = [ed?.altezzaM, ...(ed?.parti ?? []).map((p) => p.altezzaM)].filter((h) => Number.isFinite(h));
+  if (!quote.length) return null;
+  return Math.round(Math.max(...quote) * 10) / 10;
+}
+
+function pesiSullImpronta(anello, volumi, quadro) {
+  const piano = pianoDi(anelloAperto(anello), quadro);
+  const area = Math.abs(areaSegnata(piano));
+  const chiave = (vol) => `${vol.h}:${vol.centro?.[0]}:${vol.centro?.[1]}:${vol.fonte ?? ""}`;
+  const gia = new Set((volumi ?? []).map(chiave));
+  const misurati = [];
+  const visti = new Set();
+  for (const vol of volumi ?? []) {
+    if (!vol?.anello) continue;
+    const vp = pianoDi(anelloAperto(vol.anello), quadro);
+    const peso = area > 0 && vp.length >= 3 ? areaIntersezione(vp, piano) : 0;
+    const copia = { ...vol, peso };
+    misurati.push(copia);
+    visti.add(chiave(vol));
+  }
+  return misurati.filter((vol) => gia.has(chiave(vol)) || (area > 0 && vol.peso / area >= 0.2));
+}
+
 function volumiEdificio(anello, celle, quadro, superficie) {
   const piano = anello.map(([lon, lat]) => quadro.piano(lon, lat));
   const stretti = { "dbgt-2014": [], "dbgt-2020": [] };
@@ -895,11 +923,25 @@ function volumiEdificio(anello, celle, quadro, superficie) {
     const verticeDentro = vol.anello?.some((p) => nelPoligono(p, anello));
     if (areaOk && (dist <= 6 || verticeDentro)) rilassati[fonte].push(vol);
   }
-  if (stretti["dbgt-2014"].length) return { volumi: stretti["dbgt-2014"], aggancio: "centroide-2014" };
-  if (stretti["dbgt-2020"].length) return { volumi: stretti["dbgt-2020"], aggancio: "centroide-2020" };
-  if (rilassati["dbgt-2014"].length) return { volumi: rilassati["dbgt-2014"], aggancio: "vicino-2014" };
-  if (rilassati["dbgt-2020"].length) return { volumi: rilassati["dbgt-2020"], aggancio: "vicino-2020" };
-  return { volumi: [], aggancio: null };
+  let volumi = [];
+  let aggancio = null;
+  if (stretti["dbgt-2014"].length) { volumi = stretti["dbgt-2014"]; aggancio = "centroide-2014"; }
+  else if (stretti["dbgt-2020"].length) { volumi = stretti["dbgt-2020"]; aggancio = "centroide-2020"; }
+  else if (rilassati["dbgt-2014"].length) { volumi = rilassati["dbgt-2014"]; aggancio = "vicino-2014"; }
+  else if (rilassati["dbgt-2020"].length) { volumi = rilassati["dbgt-2020"]; aggancio = "vicino-2020"; }
+  const pianoM = pianoDi(anelloAperto(anello), quadro);
+  const area = Math.abs(areaSegnata(pianoM));
+  const gia = new Set(volumi);
+  if (area > 0) {
+    for (const vol of vicini(celle, anello)) {
+      if (gia.has(vol) || !vol.anello) continue;
+      const vp = pianoDi(anelloAperto(vol.anello), quadro);
+      if (vp.length < 3) continue;
+      const inter = areaIntersezione(vp, pianoM);
+      if (inter / area >= 0.2) volumi.push(vol);
+    }
+  }
+  return { volumi, aggancio };
 }
 
 function indicizza(volumi) {
@@ -1307,14 +1349,17 @@ function coperturaVolume(vol, indice) {
 }
 
 function anelloRitagliato(vol, copertura, quadro) {
-  if (!copertura.condiviso || !copertura.pianoMigliore || !quadro.daPiano) return vol.anello;
-  const clip = convesso(copertura.pianoMigliore)
-    ? tagliaConvesso(vol.piano, copertura.pianoMigliore)
-    : tagliaConvesso(copertura.pianoMigliore, vol.piano);
-  if (!clip || clip.length < 3 || Math.abs(areaSegnata(clip)) < 1) return vol.anello;
+  const intero = { anello: vol.anello, areaM2: vol.areaM2 ?? null };
+  if (!copertura.pianoMigliore || !quadro.daPiano) return intero;
+  let clip = null;
+  if (convesso(copertura.pianoMigliore)) clip = tagliaConvesso(vol.piano, copertura.pianoMigliore);
+  else if (convesso(vol.piano)) clip = tagliaConvesso(copertura.pianoMigliore, vol.piano);
+  if (!clip || clip.length < 3) return intero;
+  const area = Math.abs(areaSegnata(clip));
+  if (area < 1) return intero;
   const anello = clip.map(([e, n]) => quadro.daPiano(e, n));
   anello.push(anello[0]);
-  return anello;
+  return { anello, areaM2: Math.round(area * 10) / 10 };
 }
 
 function alzaCorpo(ed, h, fonte) {
@@ -1402,8 +1447,8 @@ function applicaVolumiCoperti(volumi, quadro, stats) {
     if (!(vol.h > (ed.altezzaM ?? corpo) + SOPRA_CORPO_PARTE_M)) continue;
     if (parteGiaPresente(ed, vol, quadro)) continue;
     const prima = ed.parti?.length ?? 0;
-    const anello = anelloRitagliato(vol, copertura, quadro);
-    aggiungiParte(ed, { ...vol, anello }, ePiantaTorre(vol, ed.superficieM2) ? "torre" : "corpo");
+    const ritaglio = anelloRitagliato(vol, copertura, quadro);
+    aggiungiParte(ed, { ...vol, anello: ritaglio.anello, areaM2: ritaglio.areaM2 }, ePiantaTorre(vol, ed.superficieM2) ? "torre" : "corpo");
     if ((ed.parti?.length ?? 0) > prima) {
       stats.partiAggiunte += 1;
       if (fonte === "dbgt-2020") stats.partiDbgt2020 += 1;
@@ -1448,12 +1493,31 @@ function statisticheVuote() {
  * volume ne copre almeno l'80%. Una parte si aggiunge solo se è più alta del
  * corpo di oltre 1,5 m. Il 2020 non duplica una parte 2014 già presente.
  */
+function scartaContenuti(nuovi, esistenti, quadro) {
+  const tenuti = [...esistenti];
+  const fuori = [];
+  for (const ed of nuovi) {
+    const centro = centroide(ed.anello);
+    const dentro = tenuti.some((altro) => (altro.superficieM2 ?? 0) + 1 >= (ed.superficieM2 ?? 0)
+      && anelliEdificio(altro).some((ring) => nelPoligono(centro, ring)
+        && frazioneSovrapposizione(ed.anello, ring, quadro) > 0.8));
+    if (dentro) continue;
+    fuori.push(ed);
+    tenuti.push(ed);
+  }
+  return fuori;
+}
+
 export function integraVolumiOrfani(volumi2014, volumi2020, edificiOsm, quadro) {
   const stats = statisticheVuote();
   const prima = classificaVolumi(volumi2014, indiceEdifici(edificiOsm, quadro), quadro);
   applicaVolumiCoperti(prima.coperti, quadro, stats);
   const gruppi2014 = raggruppaVolumi(prima.orfani, quadro);
-  const edifici2014 = gruppi2014.map((gruppo, i) => edificioDbgt(gruppo, "dbgt-2014", i + 1));
+  const edifici2014 = scartaContenuti(
+    gruppi2014.map((gruppo, i) => edificioDbgt(gruppo, "dbgt-2014", i + 1)),
+    edificiOsm,
+    quadro,
+  );
   const dopo = classificaVolumi(
     volumi2020,
     indiceEdifici(edificiOsm.concat(edifici2014), quadro),

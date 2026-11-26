@@ -53,15 +53,19 @@ export function ePiantaTorre(vol, areaEdificio) {
  * @param {number} areaEdificio
  */
 export function separaTorre(volumi, areaEdificio) {
-  const validi = (volumi ?? []).filter((v) => Number.isFinite(v.h) && v.h > 0.5 && v.h <= 80 && accettabile(v, areaEdificio));
+  const validi = (volumi ?? []).filter((v) => Number.isFinite(v.h) && v.h > 0.5 && v.h <= 80 && (v.peso > 0 || accettabile(v, areaEdificio)));
   if (!validi.length) return { corpo: null, torri: [] };
   const perAltezza = (a, b) => b.h - a.h;
   const sostanziosi = validi.filter((v) => areaDi(v) >= 80);
   const punta = validi.filter((v) => ePiantaTorre(v, areaEdificio)).sort(perAltezza)[0];
   const corpoDi = (lista) => {
-    const base = lista.filter((v) => !ePiantaTorre(v, areaEdificio));
+    const conPeso = lista.some((v) => v.peso > 0);
+    const base = lista.filter((v) => !ePiantaTorre(v, areaEdificio) && (conPeso ? v.peso > 0 : accettabile(v, areaEdificio)));
     const pesi = base.length ? base : lista;
-    const h = medianaPesata(pesi.map((v) => ({ h: v.h, peso: Math.max(areaDi(v), 0) })));
+    const h = medianaPesata(pesi.map((v) => ({
+      h: v.h,
+      peso: v.peso > 0 ? v.peso : Math.max(areaDi(v), 0),
+    })));
     const scelto = (base.length ? base : pesi).slice().sort(perAltezza)[0];
     if (!scelto) return null;
     if (!Number.isFinite(h) || Math.abs(h - scelto.h) < 1e-6) return scelto;
