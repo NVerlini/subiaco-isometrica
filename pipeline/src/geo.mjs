@@ -76,7 +76,28 @@ export function creaQuadro(regione) {
     ];
   }
 
-  return { daLonLat, piano, suOrtometrico, pixel, geoidM, headingDeg: regione.headingDeg ?? 45 };
+  function ecefToLlh(x, y, z) {
+    const p = Math.hypot(x, y);
+    const lonP = Math.atan2(y, x);
+    let latP = Math.atan2(z, p * (1 - E2));
+    for (let i = 0; i < 4; i++) {
+      const s = Math.sin(latP);
+      const N = A / Math.sqrt(1 - E2 * s * s);
+      latP = Math.atan2(z + E2 * N * s, p);
+    }
+    return [(lonP * 180) / Math.PI, (latP * 180) / Math.PI];
+  }
+
+  /** Inverso di piano: est e nord → lon/lat. */
+  function daPiano(e, n) {
+    return ecefToLlh(
+      o[0] + east[0] * e + north[0] * n,
+      o[1] + east[1] * e + north[1] * n,
+      o[2] + east[2] * e + north[2] * n,
+    );
+  }
+
+  return { daLonLat, piano, daPiano, suOrtometrico, pixel, geoidM, headingDeg: regione.headingDeg ?? 45 };
 }
 
 /** Assi della camera in ENU. Adattato da camera.ts (`axes`). */

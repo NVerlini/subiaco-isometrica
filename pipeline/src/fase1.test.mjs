@@ -357,12 +357,59 @@ test("un volume va a un solo edificio e il 2020 non duplica il 2014", () => {
   const esito = integraVolumiOrfani([aCavallo, volume2014], [volume2020], [a, b, sola], quadro);
   assert.equal(a.altezzaM, 8);
   assert.equal(b.altezzaM, 8);
-  assert.equal(a.parti.length, 1);
-  assert.equal(b.parti.length, 1);
+  assert.deepEqual([a.parti.length, b.parti.length].sort((x, y) => x - y), [1, 2]);
   assert.equal(sola.parti.filter((p) => p.fonteVolume === "dbgt-2014").length, 1);
   assert.equal(sola.parti.filter((p) => p.fonteVolume === "dbgt-2020").length, 0);
   assert.equal(esito.partiDbgt2020, 0);
   assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2020").length, 0);
+});
+
+test("una parte secondaria copre il volume 2020 e un volume a cavallo va al prevalente", () => {
+  const quadro = creaQuadro(pipeline.regione);
+  const lat = 41.926;
+  const lon = 13.094;
+  const est = (m) => lon + m / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const principale = rettangolo(lon, lat, 12, 12);
+  const secondaria = rettangolo(est(14), lat, 12, 12);
+  const agglomerato = {
+    id: "dbgt-2014:1",
+    fonte: "dbgt-2014",
+    anello: principale,
+    altezzaM: 10,
+    superficieM2: 144,
+    parti: [
+      { ruolo: "corpo", anello: principale, altezzaM: 10, fonteVolume: "dbgt-2014", areaM2: 144 },
+      { ruolo: "corpo", anello: secondaria, altezzaM: 11, fonteVolume: "dbgt-2014", areaM2: 144 },
+    ],
+  };
+  const sopra = volume(est(14), lat, 12, 11.2, "dbgt-2020");
+  const rocca = {
+    id: "way/153585997",
+    landmark: "rocca-abbaziale",
+    anello: rettangolo(est(60), lat, 24, 16),
+    altezzaM: 9.5,
+    superficieM2: 384,
+    parti: [{ ruolo: "corpo", anello: rettangolo(est(60), lat, 24, 16), altezzaM: 9.5 }],
+  };
+  const vicino = {
+    id: "way/153586001",
+    anello: rettangolo(est(80), lat, 16, 16),
+    altezzaM: 8,
+    superficieM2: 256,
+    parti: [{ ruolo: "corpo", anello: rettangolo(est(80), lat, 16, 16), altezzaM: 8 }],
+  };
+  const aCavallo = {
+    h: 19.6,
+    areaM2: 577,
+    anello: rettangolo(est(64), lat, 28, 14),
+    fonte: "dbgt-2014",
+  };
+  const esito = integraVolumiOrfani([aCavallo], [sopra], [agglomerato, rocca, vicino], quadro);
+  assert.equal(esito.edifici.filter((ed) => ed.fonte === "dbgt-2020").length, 0);
+  const parteRocca = rocca.parti.find((p) => p.altezzaM === 19.6);
+  assert.ok(parteRocca);
+  assert.equal(vicino.parti.some((p) => p.altezzaM === 19.6), false);
+  assert.equal(vicino.altezzaM, 8);
 });
 
 test("due case attigue restano e un doppione si scarta", () => {

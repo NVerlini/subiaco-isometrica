@@ -1166,32 +1166,48 @@ function bboxPiano(punti) {
   return [minX, minY, maxX, maxY];
 }
 
+function anelliEdificio(ed) {
+  const lista = [];
+  const visti = new Set();
+  const aggiungi = (anello) => {
+    if (!anello || anello.length < 4 || visti.has(anello)) return;
+    visti.add(anello);
+    lista.push(anello);
+  };
+  aggiungi(ed?.anello);
+  for (const parte of ed?.parti ?? []) aggiungi(parte.anello);
+  return lista;
+}
+
 function indiceEdifici(edifici, quadro) {
   const cella = 48;
   const buckets = new Map();
-  const schede = [];
   for (const ed of edifici) {
-    if (!ed?.anello || ed.anello.length < 4) continue;
-    const piano = pianoDi(anelloAperto(ed.anello), quadro);
-    if (piano.length < 3) continue;
-    const box = bboxPiano(piano);
-    const scheda = {
-      ed,
-      piano,
-      box,
-      area: Math.abs(areaSegnata(piano)) || ed.superficieM2 || 0,
-    };
-    schede.push(scheda);
-    const x0 = Math.floor(box[0] / cella);
-    const x1 = Math.floor(box[2] / cella);
-    const y0 = Math.floor(box[1] / cella);
-    const y1 = Math.floor(box[3] / cella);
-    for (let x = x0; x <= x1; x++) {
-      for (let y = y0; y <= y1; y++) {
-        const k = `${x}:${y}`;
-        const lista = buckets.get(k);
-        if (lista) lista.push(scheda);
-        else buckets.set(k, [scheda]);
+    for (const anello of anelliEdificio(ed)) {
+      const piano = pianoDi(anelloAperto(anello), quadro);
+      if (piano.length < 3) continue;
+      const box = bboxPiano(piano);
+      const scheda = {
+        ed,
+        anello,
+        piano,
+        box,
+        principale: anello === ed.anello,
+        area: anello === ed.anello
+          ? (Math.abs(areaSegnata(piano)) || ed.superficieM2 || 0)
+          : Math.abs(areaSegnata(piano)),
+      };
+      const x0 = Math.floor(box[0] / cella);
+      const x1 = Math.floor(box[2] / cella);
+      const y0 = Math.floor(box[1] / cella);
+      const y1 = Math.floor(box[3] / cella);
+      for (let x = x0; x <= x1; x++) {
+        for (let y = y0; y <= y1; y++) {
+          const k = `${x}:${y}`;
+          const lista = buckets.get(k);
+          if (lista) lista.push(scheda);
+          else buckets.set(k, [scheda]);
+        }
       }
     }
   }
@@ -1210,9 +1226,9 @@ function schedeVicine(indice, box) {
       const lista = indice.buckets.get(`${x}:${y}`);
       if (!lista) continue;
       for (const s of lista) {
-        if (visti.has(s.ed)) continue;
+        if (visti.has(s)) continue;
         if (s.box[2] < box[0] || box[2] < s.box[0] || s.box[3] < box[1] || box[3] < s.box[1]) continue;
-        visti.add(s.ed);
+        visti.add(s);
         fuori.push(s);
       }
     }
@@ -1234,19 +1250,53 @@ function preparaVolume(vol, quadro) {
   };
 }
 
-/** Una sola misura per volume, solo sugli edifici il cui bbox tocca il volume. */
+/** Una sola misura per volume. Ogni parte degli edifici vicini entra nel confronto. */
 function coperturaVolume(vol, indice) {
+  const perEd = new Map();
+  for (const s of schedeVicine(indice, vol.box)) {
+    const inter = vol.areaPiano > 0 ? areaIntersezione(vol.piano, s.piano) : 0;
+    const dentro = nelPoligono(vol.centro, s.anello);
+    if (inter <= 0 && !dentro) continue;
+    let rec = perEd.get(s.ed);
+    if (!rec) {
+      rec = {
+        ed: s.ed,
+        inter: 0,
+        dentro: false,
+        interPrincipale: 0,
+        areaPrincipale: 0,
+        pianoMigliore: s.piano,
+        interMigliore: -1,
+      };
+      perEd.set(s.ed, rec);
+    }
+    rec.inter += inter;
+    if (dentro) rec.dentro = true;
+    if (s.principale) {
+      rec.interPrincipale = inter;
+      rec.areaPrincipale = s.area;
+    }
+    if (inter > rec.interMigliore) {
+      rec.interMigliore = inter;
+      rec.pianoMigliore = s.piano;
+    }
+  }
   let best = null;
   let seconda = 0;
-  for (const s of schedeVicine(indice, vol.box)) {
-    const dentro = nelPoligono(vol.centro, s.ed.anello);
-    const inter = vol.areaPiano > 0 ? areaIntersezione(vol.piano, s.piano) : 0;
-    const frazione = vol.areaPiano > 0 ? inter / vol.areaPiano : 0;
-    const coperturaEdificio = s.area > 0 ? inter / s.area : 0;
-    if (!dentro && !(frazione > SOVRAPPOSIZIONE_MAX)) continue;
-    if (!best || inter > best.inter) {
+  for (const rec of perEd.values()) {
+    const frazione = vol.areaPiano > 0 ? rec.inter / vol.areaPiano : 0;
+    const coperturaEdificio = rec.areaPrincipale > 0 ? rec.interPrincipale / rec.areaPrincipale : 0;
+    if (!rec.dentro && !(frazione > SOVRAPPOSIZIONE_MAX)) continue;
+    if (!best || rec.inter > best.inter) {
       if (best) seconda = Math.max(seconda, best.frazione);
-      best = { ed: s.ed, frazione, inter, coperturaEdificio, dentro };
+      best = {
+        ed: rec.ed,
+        frazione,
+        inter: rec.inter,
+        coperturaEdificio,
+        dentro: rec.dentro,
+        pianoMigliore: rec.pianoMigliore,
+      };
     } else {
       seconda = Math.max(seconda, frazione);
     }
@@ -1254,6 +1304,17 @@ function coperturaVolume(vol, indice) {
   if (!best) return null;
   best.condiviso = seconda > SOVRAPPOSIZIONE_MAX;
   return best;
+}
+
+function anelloRitagliato(vol, copertura, quadro) {
+  if (!copertura.condiviso || !copertura.pianoMigliore || !quadro.daPiano) return vol.anello;
+  const clip = convesso(copertura.pianoMigliore)
+    ? tagliaConvesso(vol.piano, copertura.pianoMigliore)
+    : tagliaConvesso(copertura.pianoMigliore, vol.piano);
+  if (!clip || clip.length < 3 || Math.abs(areaSegnata(clip)) < 1) return vol.anello;
+  const anello = clip.map(([e, n]) => quadro.daPiano(e, n));
+  anello.push(anello[0]);
+  return anello;
 }
 
 function alzaCorpo(ed, h, fonte) {
@@ -1339,10 +1400,10 @@ function applicaVolumiCoperti(volumi, quadro, stats) {
       stats.corpiAlzati += 1;
     }
     if (!(vol.h > (ed.altezzaM ?? corpo) + SOPRA_CORPO_PARTE_M)) continue;
-    if (copertura.condiviso) continue;
     if (parteGiaPresente(ed, vol, quadro)) continue;
     const prima = ed.parti?.length ?? 0;
-    aggiungiParte(ed, vol, ePiantaTorre(vol, ed.superficieM2) ? "torre" : "corpo");
+    const anello = anelloRitagliato(vol, copertura, quadro);
+    aggiungiParte(ed, { ...vol, anello }, ePiantaTorre(vol, ed.superficieM2) ? "torre" : "corpo");
     if ((ed.parti?.length ?? 0) > prima) {
       stats.partiAggiunte += 1;
       if (fonte === "dbgt-2020") stats.partiDbgt2020 += 1;

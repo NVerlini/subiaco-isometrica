@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assi, cameraTile, codificaQuota, creaQuadro, decodificaQuota, tileCoperte } from "./geo.mjs";
 import { profiloStradale } from "./strade.mjs";
-import { separaTorre } from "./torri.mjs";
+import { medianaPesata, separaTorre } from "./torri.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const pipeline = JSON.parse(readFileSync(path.join(ROOT, "config/pipeline.json"), "utf8"));
@@ -123,6 +123,20 @@ test("il volume alto e stretto diventa una torre, il corpo no", () => {
   ], 723);
   assert.equal(rocca.torri.length, 0);
   assert.equal(rocca.corpo.h, 19.6);
+
+  const andreaAlto = separaTorre([
+    { h: 56.3, areaM2: 48, anello: anelloT, _e: 0, _n: 0 },
+    { h: 42.4, areaM2: 420, anello: anelloT, _e: 40, _n: 0 },
+    { h: 25.4, areaM2: 1600, anello: anelloT, _e: 4, _n: 30 },
+    { h: 24.0, areaM2: 900, anello: anelloT, _e: 6, _n: 34 },
+  ], 2000);
+  assert.equal(andreaAlto.corpo.h, 25.4);
+  assert.ok(andreaAlto.torri.some((t) => t.h === 56.3));
+  assert.equal(medianaPesata([
+    { h: 42.4, peso: 420 },
+    { h: 25.4, peso: 1600 },
+    { h: 24, peso: 900 },
+  ]), 25.4);
 });
 
 test("la carreggiata scende verso l'erosione e il costruito vicino la segue", () => {
