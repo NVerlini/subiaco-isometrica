@@ -5,70 +5,30 @@
   --muschio: #2f4a3a;
   --terracotta: #8c3b2c;
   --linea: rgba(28, 25, 21, 0.14);
-  --ombra: 0 10px 28px rgba(20, 16, 12, 0.18);
+  --ombra: 0 6px 18px rgba(20, 16, 12, 0.22);
+  --vetro: rgba(244, 239, 230, 0.92);
   color-scheme: light;
-  font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
 
 html, body {
   margin: 0;
+  width: 100%;
   height: 100%;
-  background: var(--bosco);
-  color: var(--inchiostro);
-}
-
-body {
-  min-height: 100%;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-}
-
-header, footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 16px;
-  background: var(--bosco);
-  color: var(--carta);
-}
-
-header h1 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.occhiello {
-  margin: 0 0 2px;
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #d5c7ae;
-}
-
-.comandi {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.fonte {
-  margin: 0;
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
-  font-size: 13px;
-  color: #efe6d6;
-}
-
-#vista {
-  position: relative;
   overflow: hidden;
-  background: #6e8f66;
+  background: #b7c9d6;
+  color: var(--inchiostro);
+  overscroll-behavior: none;
+}
+
+/* La mappa è la pagina: occupa tutta la finestra, la UI le sta sopra. */
+#vista {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #b7c9d6;
   touch-action: none;
   cursor: grab;
 }
@@ -78,15 +38,19 @@ header h1 {
 #stato {
   position: absolute;
   z-index: 2;
-  margin: 16px;
-  color: var(--carta);
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--vetro);
+  font-size: 14px;
 }
 
-#tessere, #pin, #velo {
-  position: absolute;
-  inset: 0;
-}
+#stato[hidden] { display: none; }
+
+#tessere, #pin, #velo { position: absolute; inset: 0; }
 
 #tessere img {
   position: absolute;
@@ -97,20 +61,10 @@ header h1 {
 }
 
 #pin { z-index: 2; pointer-events: none; }
+#velo { z-index: 1; pointer-events: none; background: transparent; }
 
-#velo {
-  z-index: 1;
-  pointer-events: none;
-  background: transparent;
-}
-
-body.notte #tessere img {
-  filter: brightness(0.42) saturate(0.62) hue-rotate(18deg);
-}
-
-body.notte #velo {
-  background: rgba(10, 18, 48, 0.42);
-}
+body.notte #tessere img { filter: brightness(0.42) saturate(0.62) hue-rotate(18deg); }
+body.notte #velo { background: rgba(10, 18, 48, 0.42); }
 
 .pin {
   position: absolute;
@@ -129,8 +83,8 @@ body.notte #velo {
   position: absolute;
   left: 14px;
   top: 14px;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border: 2px solid #fffaf3;
   border-radius: 50%;
   background: var(--terracotta);
@@ -140,178 +94,245 @@ body.notte #velo {
 
 .pin .nome {
   position: absolute;
-  left: 24px;
-  top: 0;
-  padding: 3px 8px;
+  left: 22px;
+  top: 2px;
+  padding: 2px 7px;
   border-radius: 999px;
-  background: var(--carta);
+  background: var(--vetro);
   color: var(--inchiostro);
-  font: 600 13px/1.2 "Avenir Next", "Segoe UI", sans-serif;
+  font: 600 12px/1.2 "Avenir Next", "Segoe UI", sans-serif;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.16);
 }
 
-.pin.sinistra .nome {
-  left: auto;
-  right: 24px;
-}
-
+.pin.sinistra .nome { left: auto; right: 22px; }
 .pin.aperto .punto { background: var(--bosco); }
 
 .pannello {
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
-  background: var(--carta);
+  position: fixed;
+  z-index: 3;
+  background: var(--vetro);
   color: var(--inchiostro);
   border: 1px solid var(--linea);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: var(--ombra);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
+.pannello[hidden],
+#luoghi[hidden],
+#scheda[hidden],
+#fase[hidden] { display: none; }
+
+button { font: inherit; color: inherit; }
+
+/* Titolo piccolo in alto a sinistra. */
+#testata {
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+}
+
+#testata h1 {
+  margin: 0;
+  font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.fonte {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #5c564e;
+  white-space: nowrap;
+}
+
+#apri-luoghi {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#apri-luoghi:hover, #apri-luoghi[aria-expanded="true"] { background: #e8dccb; }
+
 #luoghi {
-  position: absolute;
-  z-index: 3;
-  top: 78px;
-  left: 14px;
+  top: 58px;
+  left: 12px;
   display: flex;
   flex-direction: column;
-  width: min(240px, calc(100vw - 28px));
-  padding: 6px;
+  width: min(230px, calc(100vw - 24px));
+  max-height: calc(100% - 140px);
+  overflow: auto;
+  padding: 4px;
 }
 
 #luoghi button {
   text-align: left;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 14px;
-  padding: 7px 8px;
+  font-size: 13px;
+  padding: 6px 8px;
   cursor: pointer;
 }
 
-#luoghi button[aria-current="true"],
-#luoghi button:hover {
-  background: #efe4d4;
-}
+#luoghi button[aria-current="true"], #luoghi button:hover { background: #e8dccb; }
 
+/* Meteo compatto in alto a destra. */
 #meteo {
-  position: absolute;
-  z-index: 3;
-  top: 78px;
-  right: 14px;
-  width: min(230px, calc(100vw - 28px));
-  padding: 10px 12px;
+  top: 12px;
+  right: 12px;
+  width: min(210px, calc(100vw - 24px));
+  padding: 6px 10px;
 }
 
 #meteo p {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
-  padding: 4px 0;
-  font-size: 14px;
+  padding: 2px 0;
+  font-size: 12px;
 }
 
 #meteo .dove { font-weight: 600; }
 #meteo .quanto { color: #4a433b; text-align: right; }
 
 .fase {
-  position: absolute;
-  z-index: 3;
-  top: 168px;
-  right: 14px;
+  top: auto;
+  bottom: 44px;
+  left: 12px;
   margin: 0;
-  padding: 6px 10px;
-  font-size: 12px;
-  letter-spacing: 0.01em;
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
-#scheda {
-  position: absolute;
-  z-index: 4;
-  left: 14px;
-  bottom: 58px;
-  width: min(360px, calc(100vw - 28px));
-  padding: 14px 14px 12px;
-}
-
-#scheda h2 {
-  margin: 0 0 6px;
-  font-family: "Iowan Old Style", Palatino, Georgia, serif;
-  font-size: 22px;
-}
-
-#scheda p { margin: 0 0 8px; font-size: 15px; line-height: 1.4; }
-#scheda .meta { color: #5c564e; font-size: 12px; }
-#scheda .azioni {
+/* Controlli di zoom in basso a destra. */
+#zoom {
+  right: 12px;
+  bottom: 44px;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 10px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
 }
-#scheda a { color: var(--terracotta); font-size: 13px; }
-#scheda button {
+
+#zoom button {
+  width: 36px;
+  height: 36px;
   border: 0;
-  border-radius: 8px;
-  background: var(--muschio);
-  color: var(--carta);
-  font: inherit;
-  font-size: 13px;
-  padding: 6px 10px;
+  border-bottom: 1px solid var(--linea);
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
   cursor: pointer;
 }
 
+#zoom button:last-child { border-bottom: 0; font-size: 17px; }
+#zoom button:hover { background: #e8dccb; }
+
 #segnala {
-  position: fixed;
-  z-index: 3;
-  right: 14px;
-  bottom: 52px;
-  padding: 8px 12px;
+  right: 58px;
+  bottom: 44px;
+  padding: 5px 10px;
   color: var(--inchiostro);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 #segnala:hover { color: var(--terracotta); }
 
-footer {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 6px 8px;
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
-  font-size: 12px;
-  line-height: 1.45;
-  color: #e6dccb;
+#scheda {
+  left: 12px;
+  bottom: 74px;
+  width: min(340px, calc(100vw - 24px));
+  padding: 12px 12px 10px;
 }
 
-footer a { color: inherit; }
+#scheda h2 {
+  margin: 0 0 6px;
+  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+  font-size: 20px;
+}
+
+#scheda p { margin: 0 0 8px; font-size: 14px; line-height: 1.4; }
+#scheda .meta { color: #5c564e; font-size: 11px; }
+#scheda .azioni { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+#scheda a { color: var(--terracotta); font-size: 13px; }
+#scheda button {
+  border: 0;
+  border-radius: 7px;
+  background: var(--muschio);
+  color: var(--carta);
+  font-size: 13px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+/* Crediti discreti in basso; l'elenco completo si apre con un clic. */
+#crediti {
+  position: fixed;
+  z-index: 3;
+  right: 0;
+  bottom: 0;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-top-left-radius: 8px;
+  background: rgba(244, 239, 230, 0.78);
+  font-size: 11px;
+  line-height: 1.45;
+  color: #3d372f;
+}
+
+#apri-crediti {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+#elenco-crediti {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  max-width: 720px;
+  padding-top: 4px;
+}
+
+#elenco-crediti[hidden] { display: none; }
+#crediti a { color: inherit; }
 
 @media (max-width: 720px) {
-  header { align-items: flex-start; flex-wrap: wrap; }
-  #meteo { left: 14px; right: auto; }
-  .fase { top: 158px; left: 14px; right: auto; }
-  #luoghi {
-    top: auto;
-    bottom: 12px;
-    max-height: 34%;
-    overflow: auto;
-  }
+  #testata { gap: 6px; padding: 5px 6px 5px 10px; }
+  #testata h1 { font-size: 15px; }
+  .fonte { display: none; }
+  #meteo { top: 56px; left: 12px; right: auto; width: auto; }
+  #meteo p:not(:first-child) { display: none; }
+  #luoghi { top: 56px; }
+  body:has(#luoghi:not([hidden])) #meteo { display: none; }
+  #segnala { right: 58px; bottom: 44px; }
+  .fase { display: none; }
   #scheda {
-    top: 210px;
-    bottom: auto;
-    max-height: calc(100% - 230px);
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: 160px;
+    max-height: 50%;
     overflow: auto;
   }
-  body:has(#scheda:not([hidden])) #luoghi { display: none; }
-  #segnala {
-    position: static;
-    padding: 0;
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-    color: #efe6d6;
-    font-size: 13px;
-  }
+  #elenco-crediti { max-width: calc(100vw - 16px); }
 }

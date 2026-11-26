@@ -3,16 +3,16 @@
   "title": "Subiaco e Monte Livata",
   "area": "centro-storico",
   "tile_size": 512,
-  "native_zoom": 5,
+  "native_zoom": 8,
   "min_zoom": 2,
   "bounds": [
     [
-      -4096,
-      -4096
+      -6144,
+      -6144
     ],
     [
       4096,
-      4096
+      7168
     ]
   ],
   "origin": [
@@ -48,15 +48,10 @@
     }
   },
   "format": "avif",
-  "fallback": "jpg",
-  "maxZoomPixelRatio": 2.5,
-  "zoomPerScroll": 1.35,
   "layers": {
-    "photo": 4
+    "photo": 316
   },
   "dipinte": false,
-  "demo": true,
-  "fonte": "schema",
   "attributions": [
     "© contributori OpenStreetMap, ODbL",
     "© Regione Lazio, DBGT, CC BY 4.0",
@@ -68,5 +63,5 @@
     "Mondo Isometrico, Domenico Gagliardi (@dom_gag_96), MIT",
     "isometricworld, Dmytro Krasun, MIT"
   ],
-  "nota": "Schema del centro storico (Rocca e Ponte) per GitHub Pages. Non è il render delle 33 tile. Se tiles/dipinte/centro-storico/ contiene PNG da 1024 px, il build pubblica quelle."
+  "nota": "Piramide delle tile non dipinte. Il viewer (FASE 4) somma origin/span all'indice di OpenSeadragon."
 }
